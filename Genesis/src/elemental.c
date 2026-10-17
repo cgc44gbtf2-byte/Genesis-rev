@@ -313,7 +313,7 @@ void do_flarearrow( CHAR_DATA *ch, char *argument )
 	return;
     }
 
-    if ((victim = ch->fighting) == NULL)
+    if ((victim = arg[0] == '\0' ? ch->fighting : NULL) == NULL)
     {
 	if ((victim = get_char_room(ch, arg)) == NULL)
 	{
@@ -340,10 +340,12 @@ void do_flarearrow( CHAR_DATA *ch, char *argument )
     WAIT_STATE(ch, 20 - ch->pcdata->powers[ELEM_FIRE]);
 
     one_hit(ch, victim, TYPE_HIT, "flare arrow");
+    if (!combat_target_live(ch, victim)) return;
     one_hit(ch, victim, TYPE_HIT, "flare arrow");
+    if (!combat_target_live(ch, victim)) return;
     one_hit(ch, victim, TYPE_HIT, "flare arrow");
 
-    if (victim == NULL || hpcheck == victim->hit) return;
+    if (!combat_target_live(ch, victim) || hpcheck == victim->hit) return;
 
     if (!IS_NPC(victim) && !IS_AFFECTED(victim, AFF_FLAMING))
     {
@@ -477,7 +479,7 @@ void do_iciclestorm( CHAR_DATA *ch, char *argument )
 	return; 
     } 
 
-    if ((victim = ch->fighting) == NULL)
+    if ((victim = arg[0] == '\0' ? ch->fighting : NULL) == NULL)
     {
 	if ((victim = get_char_room(ch, arg)) == NULL)
 	{
@@ -492,13 +494,15 @@ void do_iciclestorm( CHAR_DATA *ch, char *argument )
 	return;
     }
 
+    if (victim == ch || is_safe(ch, victim)) return;
+    ch->mana -= power;
+    WAIT_STATE(ch, 12);
     act("You send a swathe of sharp icicles at $N.",ch,NULL,victim,TO_CHAR);
     act("$n sends a swathe of sharp icicles at $N.",ch,NULL,victim,TO_NOTVICT);
     act("$n sends a swathe of sharp icicles at you.",ch,NULL,victim,TO_VICT);
 
     one_hit(ch, victim, TYPE_HIT, "icicle barrage");
 
-    WAIT_STATE(ch, 12);
     return;
 }
 
@@ -634,11 +638,18 @@ void do_watercontrol(CHAR_DATA *ch, char *argument)
 	return;
     }
 
-    if ((victim = ch->fighting) == NULL)
+    if (ch->fighting == NULL)
     {
 	stc("Only during a fight.\n\r", ch);
 	return;
     }
+    victim = arg[0] ? get_char_room(ch, arg) : ch->fighting;
+    if (victim == NULL)
+    {
+        stc("They aren't here.\n\r", ch);
+        return;
+    }
+    if (victim == ch || is_safe(ch, victim)) return;
 
     if (ch->mana < 4000)
     {
@@ -720,7 +731,7 @@ void do_windblades( CHAR_DATA *ch, char *argument )
 	return;
     }
     
-    if ((victim = ch->fighting) == NULL)
+    if ((victim = arg[0] == '\0' ? ch->fighting : NULL) == NULL)
     {
 	if ((victim = get_char_room(ch, arg)) == NULL)
 	{
@@ -753,7 +764,9 @@ void do_windblades( CHAR_DATA *ch, char *argument )
     ch->mana -= power;
 
     one_hit(ch, victim, TYPE_HIT, "wind blade");
+    if (!combat_target_live(ch, victim)) return;
     one_hit(ch, victim, TYPE_HIT, "wind blade");
+    if (!combat_target_live(ch, victim)) return;
     one_hit(ch, victim, TYPE_HIT, "wind blade");
 
     return; 
@@ -764,6 +777,7 @@ void do_stoneblast( CHAR_DATA *ch, char *argument )
     char arg[MIL];
     CHAR_DATA *victim;
     CHAR_DATA *victim_next;
+    ROOM_INDEX_DATA *origin = ch->in_room;
 
     one_argument(argument, arg);
 
@@ -798,7 +812,9 @@ void do_stoneblast( CHAR_DATA *ch, char *argument )
 	if (IS_BUI(victim)) continue;
 	if (!str_cmp(ch->pcdata->conding, victim->name) && IS_MORE(ch, MORE_LOYAL)) continue;
   	one_hit(ch, victim, TYPE_HIT, "rock shower");
-  	one_hit(ch, victim, TYPE_HIT, "rock shower");
+  if (combat_target_live(ch, victim))
+      one_hit(ch, victim, TYPE_HIT, "rock shower");
+  if (ch->in_room != origin || ch->hit <= 0 || ch->position < POS_FIGHTING) break;
     }
     WAIT_STATE(ch, 13);
     return; 
@@ -828,7 +844,7 @@ void do_localquake( CHAR_DATA *ch, char *argument ) {
 	   send_to_char( "Cast Local Quake on whom?\n\r", ch );
 	   return;
 	}
-	if ( (victim = ch->fighting) == NULL)
+if ((victim = arg[0] == '\0' ? ch->fighting : NULL) == NULL)
 	{
 	   if ( ( victim = get_char_room( ch, arg ) ) == NULL )
 	   {
@@ -1140,7 +1156,7 @@ void do_mirageslice( CHAR_DATA *ch, char *argument ) {
            send_to_char( "Who shall you hit?\n\r", ch );
            return;
     	}
-    	if ( ( victim = ch->fighting ) == NULL )
+    if ((victim = arg[0] == '\0' ? ch->fighting : NULL) == NULL)
     	{
            if ( ( victim = get_char_room( ch, arg ) ) == NULL )
            {
@@ -1749,7 +1765,7 @@ void do_nightblade( CHAR_DATA *ch, char *argument)
      	   send_to_char( "Who shall you hit?\n\r", ch );
            return;
     	}
-    	if ( ( victim = ch->fighting ) == NULL )
+    if ((victim = arg[0] == '\0' ? ch->fighting : NULL) == NULL)
     	{
            if ( ( victim = get_char_room( ch, arg ) ) == NULL )
            {

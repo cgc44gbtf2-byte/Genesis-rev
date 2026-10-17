@@ -604,6 +604,118 @@ static void test_random_drain_bounds(void)
     }
 }
 
+static void test_cauldron_class_and_hp_envelopes(void)
+{
+    const long classes[] = {CLASS_VAMPIRE, CLASS_WEREWOLF, CLASS_SORCERER,
+        CLASS_DROW, CLASS_HIGHLANDER, CLASS_MAGE, CLASS_DRAGON, CLASS_NINJA,
+        CLASS_MONK, CLASS_ELEM};
+    const long hp[] = {10000, 50000, 100000, 1000000, LONG_MAX};
+    for (size_t c = 0; c < sizeof(classes)/sizeof(classes[0]); ++c)
+        for (size_t h = 0; h < sizeof(hp)/sizeof(hp[0]); ++h)
+            for (int rank = 0; rank <= (classes[c] == CLASS_VAMPIRE ? 7 : 0); ++rank)
+            {
+                long boiled, raw, taken, low_reduction, high_reduction;
+                reset();
+                players[0].powers[DISC_THAUMATURGY] = 5;
+                chars[1].class = classes[c];
+                chars[1].hit = chars[1].max_hit = hp[h];
+                players[1].powers[DISC_FORTITUDE] = rank;
+                do_cauldronblood(chars, "student");
+                boiled = 100 - chars[1].blood[0];
+                assert(boiled >= 10 && boiled <= 20);
+                raw = hp[h] / 100 * boiled + hp[h] % 100 * boiled / 100;
+                low_reduction = raw / 100 * (5 * rank)
+                    + raw % 100 * (5 * rank) / 100;
+                high_reduction = raw / 100 * (10 * rank)
+                    + raw % 100 * (10 * rank) / 100;
+                taken = hp[h] - chars[1].hit;
+                assert(taken >= raw - high_reduction && taken <= raw - low_reduction);
+                assert(chars[1].hit > 0 && chars[1].hit < hp[h]);
+                assert(chars[0].blood[0] == 50 && chars[0].wait == 20);
+            }
+}
+
+static OBJ_DATA *object_form_fixture(bool mummy)
+{
+    static OBJ_INDEX_DATA index;
+    OBJ_DATA *body;
+    reset();
+    memset(&index, 0, sizeof(index));
+    index.vnum = mummy ? OBJ_VNUM_CORPSE_PC : OBJ_VNUM_SPILT_BLOOD;
+    index.name = str_dup("synthetic body");
+    index.short_descr = str_dup("a synthetic body");
+    index.description = str_dup("A synthetic body lies here.");
+    index.item_type = ITEM_TRASH;
+    body = create_object(&index, 0);
+    obj_to_room(body, &room);
+    body->chobj = chars;
+    players[0].chobj = body;
+    players[0].obj_vnum = index.vnum;
+    players[0].powers[DISC_VICISSITUDE] = 4;
+    players[0].powers[DISC_SERPENTIS] = 3;
+    chars[0].more |= mummy ? MORE_MUMMIFIED : MORE_PLASMA;
+    chars[0].extra |= EXTRA_OSWITCH;
+    chars[0].affected_by |= AFF_POLYMORPH;
+    chars[0].morph = str_dup("a synthetic body");
+    room.vnum = ROOM_VNUM_IN_OBJECT;
+    return body;
+}
+
+static void test_object_form_returns(void)
+{
+    static ROOM_INDEX_DATA temple, hell;
+    for (int mummy = 0; mummy <= 1; ++mummy)
+    {
+        DO_FUN *fn = mummy ? do_mummify : do_plasmaform;
+        long flag = mummy ? MORE_MUMMIFIED : MORE_PLASMA;
+        OBJ_DATA *body = object_form_fixture(mummy);
+        memset(&temple, 0, sizeof(temple));
+        memset(&hell, 0, sizeof(hell));
+        temple.area = hell.area = &area;
+        temple.vnum = ROOM_VNUM_TEMPLE;
+        hell.vnum = ROOM_VNUM_HELL;
+        room_index_hash[temple.vnum % MAX_KEY_HASH] = NULL;
+        room_index_hash[hell.vnum % MAX_KEY_HASH] = NULL;
+        /* No exit: refuse before destroying the body or changing flags. */
+        fn(chars, "");
+        assert(players[0].chobj == body && body->chobj == chars);
+        assert(chars[0].in_room == &room && IS_MORE(chars, flag));
+        assert(IS_EXTRA(chars, EXTRA_OSWITCH) && IS_AFFECTED(chars, AFF_POLYMORPH));
+        /* Wrong form must not destroy the body through the other command. */
+        (mummy ? do_plasmaform : do_mummify)(chars, "");
+        assert(players[0].chobj == body && IS_MORE(chars, flag));
+        room_index_hash[temple.vnum % MAX_KEY_HASH] = &temple;
+        body->chobj = &chars[1];
+        fn(chars, "");
+        assert(players[0].chobj == body && chars[0].in_room == &room);
+        body->chobj = chars;
+        fn(chars, "");
+        assert(players[0].chobj == NULL && chars[0].in_room == &temple);
+        assert(temple.people == chars && room.contents == NULL && object_list == NULL);
+        assert(!IS_MORE(chars, flag) && !IS_EXTRA(chars, EXTRA_OSWITCH));
+        assert(!IS_AFFECTED(chars, AFF_POLYMORPH));
+        free_string(chars[0].morph);
+        chars[0].morph = str_dup("");
+        /* Real engine extraction can leave the form active but bodyless. */
+        body = object_form_fixture(mummy);
+        extract_obj(body);
+        assert(players[0].chobj == NULL && IS_MORE(chars, flag));
+        fn(chars, "");
+        assert(chars[0].in_room == &temple && !IS_MORE(chars, flag));
+        free_string(chars[0].morph);
+        chars[0].morph = str_dup("");
+        /* Keep the original destination when an operator supplies it. */
+        object_form_fixture(mummy);
+        room_index_hash[hell.vnum % MAX_KEY_HASH] = &hell;
+        fn(chars, "");
+        assert(chars[0].in_room == &hell && players[0].chobj == NULL);
+        free_string(chars[0].morph);
+        chars[0].morph = str_dup("");
+        room_index_hash[temple.vnum % MAX_KEY_HASH] = NULL;
+        room_index_hash[hell.vnum % MAX_KEY_HASH] = NULL;
+    }
+}
+
 int main(void)
 {
     char directory[] = "/tmp/anathema-vampire-XXXXXX";
@@ -617,6 +729,7 @@ int main(void)
     current_time = 123456; /* Reproducible, initialized engine RNG, not all-zero state. */
     init_mm();
     test_random_drain_bounds();
+    test_cauldron_class_and_hp_envelopes();
     test_recovery_cannot_be_bypassed();
     test_blood_depletion_is_not_execution();
     test_quietus_leech();
@@ -629,6 +742,7 @@ int main(void)
     test_blood_magic();
     test_potency();
     test_buff_save_roundtrip();
+    test_object_form_returns();
     reset();
     unlink("../player/Teacher");
     unlink("../player/Student");

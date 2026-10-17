@@ -2,7 +2,7 @@ CC ?= cc
 LDLIBS ?= -lcrypt
 TEST_FLAGS = -std=gnu17 -O1 -g -ffunction-sections -fdata-sections
 TEST_LDFLAGS = -Wl,--gc-sections
-TESTS = tests/test_comm tests/test_db tests/test_gameplay tests/test_buffers tests/test_save tests/test_signals tests/test_classes tests/test_powers tests/test_wall tests/test_mage_powers tests/test_combat_status tests/test_vampire
+TESTS = tests/test_comm tests/test_db tests/test_gameplay tests/test_buffers tests/test_save tests/test_signals tests/test_classes tests/test_powers tests/test_wall tests/test_mage_powers tests/test_combat_status tests/test_vampire tests/test_class_runtime tests/test_restored_spells
 ENGINE_OBJECTS = $(patsubst Genesis/src/%.c,tests/stun_engine/%.o,$(wildcard Genesis/src/*.c))
 
 .PHONY: all test sanitize clean
@@ -26,7 +26,10 @@ tests/test_classes tests/test_wall tests/test_mage_powers: tests/%: tests/%.c $(
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_FLAGS) -O0 $< $(LDFLAGS) $(TEST_LDFLAGS) $(LDLIBS) -o $@
 
 tests/test_powers: tests/test_powers.c $(wildcard Genesis/src/*.c Genesis/src/*.h)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_FLAGS) $< Genesis/src/ninja.c Genesis/src/monk.c Genesis/src/elemental.c Genesis/src/sorcerer.c Genesis/src/drow.c $(LDFLAGS) $(TEST_LDFLAGS) $(LDLIBS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_FLAGS) $< Genesis/src/ninja.c Genesis/src/monk.c Genesis/src/elemental.c Genesis/src/sorcerer.c Genesis/src/drow.c Genesis/src/combat_status.c $(LDFLAGS) $(TEST_LDFLAGS) $(LDLIBS) -o $@
+
+tests/test_class_runtime: tests/test_class_runtime.c $(wildcard Genesis/src/*.c Genesis/src/*.h)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_FLAGS) $< Genesis/src/elemental.c Genesis/src/monk.c Genesis/src/ninja.c Genesis/src/dragon.c Genesis/src/drow.c Genesis/src/highland.c Genesis/src/wwtribe.c Genesis/src/combat_status.c $(LDFLAGS) $(TEST_LDFLAGS) $(LDLIBS) -o $@
 
 test: $(TESTS)
 	@set -e; for t in $(TESTS); do ./$$t; done
@@ -37,6 +40,12 @@ tests/test_combat_status tests/test_vampire: tests/%: tests/%.c $(ENGINE_OBJECTS
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_FLAGS) $< $(ENGINE_OBJECTS) $(LDFLAGS) $(TEST_LDFLAGS) $(LDLIBS) -o $@
 
 # Separate test objects keep sanitizer flags out of the production executable.
+tests/test_restored_spells: tests/test_restored_spells.c $(filter-out tests/stun_engine/fight.o,$(ENGINE_OBJECTS)) tests/restored_fight.o
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_FLAGS) $< $(filter-out tests/stun_engine/fight.o,$(ENGINE_OBJECTS)) tests/restored_fight.o $(LDFLAGS) $(TEST_LDFLAGS) $(LDLIBS) -o $@
+
+tests/restored_fight.o: Genesis/src/fight.c $(wildcard Genesis/src/*.h)
+	$(CC) $(CPPFLAGS) -DMERC -DCOMBAT_CALLBACK_TESTING $(CFLAGS) $(TEST_FLAGS) -c $< -o $@
+
 tests/stun_engine/%.o: Genesis/src/%.c $(wildcard Genesis/src/*.h)
 	mkdir -p tests/stun_engine
 	$(CC) $(CPPFLAGS) -DMERC $(CFLAGS) $(TEST_FLAGS) -c $< -o $@
@@ -55,4 +64,4 @@ sanitize:
 
 clean:
 	$(MAKE) -C Genesis/src clean
-	rm -f $(TESTS) tests/buffers_interp.o $(ENGINE_OBJECTS) tests/stun_comm.o
+	rm -f $(TESTS) tests/buffers_interp.o $(ENGINE_OBJECTS) tests/stun_comm.o tests/restored_fight.o

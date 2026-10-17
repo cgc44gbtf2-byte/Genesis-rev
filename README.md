@@ -89,7 +89,7 @@ on all interfaces by default; restrict access with the host firewall.
 
 ## Verification and remaining scope
 
-Twelve regression suites cover network/authentication, data readers,
+Fourteen regression suites cover network/authentication, data readers,
 editor/command buffer boundaries, atomic player saves and signal handling,
 and gameplay fixes. Normal and ASan/UBSan suites passed locally. The complete
 server compiled and booted with original area/help data in an isolated
@@ -157,7 +157,7 @@ See [Debian/Ubuntu installation](deploy/INSTALL.md) and the reviewed
 account, a root-owned read-only executable and restricted writable data
 directories. No service is installed or enabled by this repository.
 
-CI validates the unit without starting systemd, runs eleven normal/sanitizer
+CI validates the unit without starting systemd, runs fourteen normal/sanitizer
 suites, and boots an isolated world then verifies a clean SIGTERM exit.
 Unit validation does not prove the sandbox or service operates correctly
 on every host; follow the installation guide's host-level checks.
@@ -168,6 +168,15 @@ Class acquisition tests exercise all ten classes, raw-stat thresholds,
 supported vampire/mage/dragon specializations and owned clan strings.
 Malkavian was advertised without any implemented discipline mapping; it is
 now omitted rather than assigned invented powers.
+
+The subsequent all-class pass repairs chained attacks after target extraction,
+Icicle Storm's missing mana payment, Drow crossbow room-context cleanup,
+named targeting and Vampire power-list names/ranks. It also hardens object-form
+recovery when the bundled world's Hell room is absent. See
+[the audit and limitations](deploy/CLASS_AUDIT.md).
+Control Weather and Energy Drain now have
+[guarded EM adaptations](deploy/RESTORED_SPELLS.md), with actual-engine
+regressions and explicit differences from EM's damage/healing rules.
 
 Power regressions cover Ninja bomb safety, Monk group-blessing initialization,
 Drow flight toggling, Elementalist flying-target immunity and independent

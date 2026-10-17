@@ -2592,22 +2592,19 @@ void do_inferno( CHAR_DATA *ch, char *argument)
     	    }
 
 
-	    if (IS_NPC(victim)) dam *=2;
+            long victim_dam = IS_NPC(victim) ? dam * 2 : dam;
 
 	    sprintf( buf1, "$n's unleashes a burning inferno upon $N." );
-	    sprintf( buf2, "You unleash a burning inferno upon $N.[#g%li#n]", dam );
-	    sprintf( buf3, "$n has unleashed a burning inferno upon you.[#r%li#n]", dam );
+	    sprintf( buf2, "You unleash a burning inferno upon $N.[#g%li#n]", victim_dam );
+	    sprintf( buf3, "$n has unleashed a burning inferno upon you.[#r%li#n]", victim_dam );
 
 	    act( buf1, ch, NULL, victim, TO_NOTVICT );
   	    act( buf2, ch, NULL, victim, TO_CHAR );
 	    act( buf3, ch, NULL, victim, TO_VICT );
 
-  	    hurt_person(ch, victim, dam);
-
-
-	    if (IS_NPC(victim)) dam /= 2; //so the damage doesn't keep multiplying...
-
-	    if (!IS_AFFECTED(victim, AFF_FLAMING))  	SET_BIT(victim->affected_by, AFF_FLAMING);
+            SET_BIT(victim->affected_by, AFF_FLAMING);
+            /* Target may be extracted by this final operation. */
+  	    hurt_person(ch, victim, victim_dam);
 	}
     }
 

@@ -539,11 +539,18 @@ void do_tsumazuku( CHAR_DATA *ch, char *argument )
 	return;
     }
 
-    if ((victim = ch->fighting) == NULL)
+    if (ch->fighting == NULL)
     {
 	stc("You must be fighting.\n\r", ch);
 	return;
     }
+    victim = arg[0] ? get_char_room(ch, arg) : ch->fighting;
+    if (victim == NULL)
+    {
+        stc("They aren't here.\n\r", ch);
+        return;
+    }
+    if (victim == ch || is_safe(ch, victim)) return;
 
     if (chance <= 3)
     {
@@ -641,7 +648,7 @@ void do_shuurai( CHAR_DATA *ch, char *argument )
 
     if (arg[0] == '\0' || (victim = get_char_room(ch, arg)) == NULL)
     {
-	if ((victim = ch->fighting) == NULL) 
+if ((victim = arg[0] == '\0' ? ch->fighting : NULL) == NULL)
 	{
 	    stc("No such person here.\n\r", ch);
 	    return;

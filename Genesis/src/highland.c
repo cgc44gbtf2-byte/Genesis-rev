@@ -142,7 +142,7 @@ void do_bash(CHAR_DATA *ch, char *argument)
 	stc("You have not learned the Powers ability to level 3 yet.\n\r", ch);
 	return;
     }
-    if( (victim = ch->fighting) == NULL )
+    if ((victim = arg[0] == '\0' ? ch->fighting : NULL) == NULL)
     {
 	if( arg[0] == '\0' )
 	{
@@ -156,7 +156,7 @@ void do_bash(CHAR_DATA *ch, char *argument)
 	}
     }
 
-    if (!hurt_fighting(ch, victim)) return;
+    if (victim == ch || is_safe(ch, victim) || !hurt_fighting(ch, victim)) return;
 
     if (number_range(1,4) == 1 || (IS_WEREWOLF(victim) && get_breed(victim,BREED_LUPUS) >= 3 && number_range(1,3) == 1))
     {
@@ -170,8 +170,10 @@ void do_bash(CHAR_DATA *ch, char *argument)
 	act("You rush forward, slamming into $N! [#g$t#n]", ch, dam, victim, TO_CHAR);
 	act("$n rushes forward, slamming into $N!", ch, dam, victim, TO_NOTVICT);
 	act("$n rushes forward, slamming into you! [#r$t#n]", ch, dam, victim, TO_VICT);
-	hurt_person(ch, victim, damage);
 	victim->wait += 10;
+        WAIT_STATE(ch, 20);
+	hurt_person(ch, victim, damage);
+        return;
     }
     WAIT_STATE(ch, 20);
     return;

@@ -2761,7 +2761,7 @@ void do_powers( CHAR_DATA *ch, char *argument )
     {
 	if (IS_WEREWOLF(ch))
 	    do_wwpowers(ch, argument);
-	if (IS_MAGE(ch))
+else if (IS_MAGE(ch))
 	    do_magepowers(ch, argument);
 	else
 	    send_to_char("Huh?\n\r",ch);
@@ -2776,6 +2776,9 @@ void do_powers( CHAR_DATA *ch, char *argument )
 	    switch (sn)
 	    {
 		default: break;
+case DISC_POTENCE:
+    if (get_disc(ch, sn) >= 7) any_commands = TRUE;
+    break;
 		case DISC_ANIMALISM:
 		case DISC_AUSPEX:
 		case DISC_CHIMERSTRY:
@@ -2802,10 +2805,10 @@ void do_powers( CHAR_DATA *ch, char *argument )
     {
 	strcpy(buf,"Animalism: Pigeon");
 	if (get_disc(ch,DISC_ANIMALISM) >= 2) strcat(buf," Beckon");
-	if (get_disc(ch,DISC_ANIMALISM) >= 3) strcat(buf," Song");
-	if (get_disc(ch,DISC_ANIMALISM) >= 4) strcat(buf," Beast");
+	if (get_disc(ch,DISC_ANIMALISM) >= 3) strcat(buf," Songserenity");
+	if (get_disc(ch,DISC_ANIMALISM) >= 4) strcat(buf," Beastwithin");
 	if (get_disc(ch,DISC_ANIMALISM) >= 5) strcat(buf," Succulence");
-	if (get_disc(ch,DISC_ANIMALISM) >= 6) strcat(buf," Frenzy");
+	if (get_disc(ch,DISC_ANIMALISM) >= 6) strcat(buf," Frenzytrigger");
 	if (get_disc(ch,DISC_ANIMALISM) == 7) strcat(buf," Fleshbond");
 	strcat(buf,".\n\r");
 	send_to_char(buf,ch);
@@ -2821,6 +2824,8 @@ void do_powers( CHAR_DATA *ch, char *argument )
 	strcat(buf,".\n\r");
 	send_to_char(buf,ch);
     }
+    if (get_disc(ch,DISC_POTENCE) >= 7)
+        send_to_char("Potence: Fist.\n\r", ch);
     if (get_disc(ch,DISC_CELERITY) > 0)
 	send_to_char("Celerity: Celerity.\n\r", ch);
     if (get_disc(ch,DISC_CHIMERSTRY) > 0)
@@ -2831,7 +2836,7 @@ void do_powers( CHAR_DATA *ch, char *argument )
 	if (get_disc(ch,DISC_CHIMERSTRY) >= 4) strcat(buf," Falseappearance");
 	if (get_disc(ch,DISC_CHIMERSTRY) >= 5) strcat(buf," Control");
 	if (get_disc(ch,DISC_CHIMERSTRY) >= 6) strcat(buf," Truedisguise");
-	if (get_disc(ch,DISC_CHIMERSTRY) >= 7) strcat(buf," Horridreality");
+	if (get_disc(ch,DISC_CHIMERSTRY) >= 7) strcat(buf," Horrid");
 	strcat(buf,".\n\r");
 	send_to_char(buf,ch);
     }
@@ -2839,18 +2844,18 @@ void do_powers( CHAR_DATA *ch, char *argument )
     {
 	strcpy(buf,"Dominate: Command");
 	if (get_disc(ch,DISC_DOMINATE) >= 3) strcat(buf," Condition");
-	if (get_disc(ch,DISC_DOMINATE) >= 4) strcat(buf," Possession");
+	if (get_disc(ch,DISC_DOMINATE) >= 3) strcat(buf," Possession");
 	strcat(buf,".\n\r");
 	send_to_char(buf,ch);
     }
     if (get_disc(ch,DISC_NECROMANCY) > 0)
     {
 	strcpy(buf,"Necromancy: Thanatopsis");
-	if (get_disc(ch,DISC_NECROMANCY) > 1) strcat(buf," Spiriteyes");
-        if (get_disc(ch,DISC_NECROMANCY) > 2) strcat(buf," Preserve");
-	if (get_disc(ch,DISC_NECROMANCY) > 3) strcat(buf," Spiritgate");
-	if (get_disc(ch,DISC_NECROMANCY) > 4) strcat(buf," Spiritguardian");
-	if (get_disc(ch,DISC_NECROMANCY) > 5) strcat(buf," Zombie");
+	strcat(buf," Spiriteyes");
+        if (get_disc(ch,DISC_NECROMANCY) >= 2) strcat(buf," Preserve");
+	if (get_disc(ch,DISC_NECROMANCY) >= 3) strcat(buf," Spiritgate");
+	if (get_disc(ch,DISC_NECROMANCY) >= 4) strcat(buf," Spiritguardian");
+	if (get_disc(ch,DISC_NECROMANCY) >= 5) strcat(buf," Zombie");
 	if (get_disc(ch,DISC_NECROMANCY) > 6) strcat(buf," Torment");
 	strcat(buf,".\n\r");
 	send_to_char(buf,ch);
@@ -2861,7 +2866,7 @@ void do_powers( CHAR_DATA *ch, char *argument )
 	strcpy(buf,"Obfuscate: Vanish");
 	if (get_disc(ch,DISC_OBFUSCATE) > 1) strcat(buf," Mask");
 	if (get_disc(ch,DISC_OBFUSCATE) > 4) strcat(buf," Soulmask");
-        if (get_disc(ch,DISC_OBFUSCATE) > 6) strcat(buf," Shield");
+        if (get_disc(ch,DISC_OBFUSCATE) >= 6) strcat(buf," Shield");
 	strcat(buf,".\n\r");
 	send_to_char(buf,ch);
     }
@@ -2885,7 +2890,7 @@ void do_powers( CHAR_DATA *ch, char *argument )
 	if (get_disc(ch,DISC_PRESENCE) > 3) strcat(buf," Summoning");
 	if (get_disc(ch,DISC_PRESENCE) > 4) strcat(buf," Majesty");
 	if (get_disc(ch,DISC_PRESENCE) > 5) strcat(buf," Enrage");
-	if (get_disc(ch,DISC_PRESENCE) > 6) strcat(buf," MaskEmpathy");
+	if (get_disc(ch,DISC_PRESENCE) > 6) strcat(buf," Empathy");
 	strcat(buf,".\n\r");
 	send_to_char(buf,ch);
     }
@@ -2909,7 +2914,7 @@ void do_powers( CHAR_DATA *ch, char *argument )
 	if (get_disc(ch,DISC_QUIETUS) > 3) strcat(buf," Bloodagony");
 	if (get_disc(ch,DISC_QUIETUS) > 4) strcat(buf," Spit");
 	if (get_disc(ch,DISC_QUIETUS) > 5) strcat(buf," Thinblood");
-	if (get_disc(ch,DISC_QUIETUS) > 6) strcat(buf," Leech");
+	if (get_disc(ch,DISC_QUIETUS) >= 6) strcat(buf," Leech");
 	strcat(buf,".\n\r");
 	send_to_char(buf,ch);
     }
@@ -2936,7 +2941,7 @@ if (get_disc(ch, DISC_THAUMATURGY) >= 5) strcat(buf," Cauldronblood");
     }
     if (get_disc(ch,DISC_VICISSITUDE) > 0)
     {
-	strcpy(buf,"Vicissitude: Changeling");
+	strcpy(buf,"Vicissitude: Malleable");
 	if (get_disc(ch,DISC_VICISSITUDE) > 1) strcat(buf," Fleshcraft");
 	if (get_disc(ch,DISC_VICISSITUDE) > 2) strcat(buf," Bonecraft");
 	if (get_disc(ch,DISC_VICISSITUDE) > 3) strcat(buf," Plasmaform");

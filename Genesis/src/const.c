@@ -179,9 +179,9 @@ const	struct	skill_type	skill_table	[MAX_SKILL]	=
     },
 
     {
-	"control weather",	LEV_SLE,
+	"control weather",	LEV_AWA,
 	spell_control_weather,	TAR_IGNORE,		POS_STANDING,
-	NULL,			SLOT(11),	25,	2,
+	NULL,			SLOT(11),	25,	12,
 	"",			"!Control Weather!"
     },
 
@@ -312,7 +312,7 @@ const	struct	skill_type	skill_table	[MAX_SKILL]	=
     },
 
     {
-	"energy drain",		LEV_SLE,
+	"energy drain",		LEV_AWA,
 	spell_energy_drain,	TAR_CHAR_OFFENSIVE,	POS_FIGHTING,
 	NULL,			SLOT(25),	35,	12,
 	"energy drain",		"!Energy Drain!"

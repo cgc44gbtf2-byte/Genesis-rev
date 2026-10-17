@@ -495,6 +495,7 @@ void one_hit( CHAR_DATA *ch, CHAR_DATA *victim, long dt, char *message )
  */
 void damage( CHAR_DATA *ch, CHAR_DATA *victim, long dam, long dt, char *message )
 {
+    ROOM_INDEX_DATA *combat_room = ch->in_room;
     if (victim == NULL || victim->position == POS_DEAD) return;
 
     if (victim != ch)
@@ -576,7 +577,17 @@ void damage( CHAR_DATA *ch, CHAR_DATA *victim, long dam, long dt, char *message 
 	dam_message(ch, victim, dam, dt, message);
 	if (victim == NULL || victim->position == POS_DEAD) return;
     }
+#ifdef COMBAT_CALLBACK_TESTING
+    /* The dedicated regression build can free an NPC at this callback.
+     * Production and the other full-engine suites call hurt_person directly. */
+    {
+        extern void combat_test_hurt_person(CHAR_DATA *, CHAR_DATA *, long);
+        combat_test_hurt_person(ch, victim, dam);
+    }
+#else
     hurt_person(ch, victim, dam);
+#endif
+    if (!combat_pair_in_room(combat_room, ch, victim)) return;
     if (IS_ELEM(victim) && IS_POLYAFF(victim, POLY_PHOENIXFORM) && victim != ch)
     {
 	act("Your burning form singes $n!", ch, NULL, victim, TO_VICT);

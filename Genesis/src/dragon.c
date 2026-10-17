@@ -129,7 +129,7 @@ void do_dbreath( CHAR_DATA *ch, char *argument )
         send_to_char("Who do you wish to use breath on?\n\r",ch);
         return;
     }
-    if ((victim = ch->fighting) == NULL && (victim = get_char_room(ch,arg)) == NULL)
+    if ((victim = arg[0] ? get_char_room(ch, arg) : ch->fighting) == NULL)
     {
 	send_to_char( "They aren't here.\n\r", ch );
 	return;
@@ -171,7 +171,7 @@ void do_dust(CHAR_DATA *ch, char *argument)
 	stc("You must have your wings to use dust.\n\r",ch);
 	return;
     }
-    if((victim = ch->fighting) == NULL)
+    if ((victim = arg[0] == '\0' ? ch->fighting : NULL) == NULL)
     {
 	if(arg[0] == '\0')
 	{
@@ -243,7 +243,7 @@ void do_stail( CHAR_DATA *ch, char *argument )
 	stc("Who do you wish to use your spiked tail on?\n\r",ch);
 	return;
     }
-    if ((victim = ch->fighting) == NULL && (victim = get_char_room(ch,arg)) == NULL)
+    if ((victim = arg[0] ? get_char_room(ch, arg) : ch->fighting) == NULL)
     {
 	stc("They aren't here.\n\r",ch);
 	return;

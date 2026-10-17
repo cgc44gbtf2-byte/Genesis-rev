@@ -189,6 +189,8 @@ char *target_name;
 
 void do_cast( CHAR_DATA *ch, char *argument )
 {
+    ROOM_INDEX_DATA *casting_room;
+    bool restored;
     char arg1[MAX_INPUT_LENGTH];
     char arg2[MAX_INPUT_LENGTH];
     CHAR_DATA *victim;
@@ -222,6 +224,19 @@ void do_cast( CHAR_DATA *ch, char *argument )
 	return;
     }
   
+    restored = skill_table[sn].spell_fun == spell_control_weather
+        || skill_table[sn].spell_fun == spell_energy_drain;
+    if (restored && (ch->wait > 0 || ch->combat_pause > 0))
+    {
+        stc("You have not recovered enough to cast again.\n\r", ch);
+        return;
+    }
+    if (skill_table[sn].spell_fun == spell_control_weather
+        && str_cmp(target_name, "better") && str_cmp(target_name, "worse"))
+    {
+        stc("Use cast 'control weather' better or worse.\n\r", ch);
+        return;
+    }
     mana = skill_table[sn].min_mana;
 
     if (IS_SET(ch->act, PLR_WOLFMAN)) mana *= 2;
@@ -260,7 +275,12 @@ void do_cast( CHAR_DATA *ch, char *argument )
 		}
 	    }
 
-	    if (ch == victim) stc("Cast this on yourself? Ok...\n\r", ch);
+    if (ch == victim && skill_table[sn].spell_fun == spell_energy_drain)
+    {
+        stc("You cannot drain your own energy.\n\r", ch);
+        return;
+    }
+    if (ch == victim) stc("Cast this on yourself? Ok...\n\r", ch);
 
 	    if (is_safe(ch, victim)) return;
 
@@ -329,16 +349,20 @@ void do_cast( CHAR_DATA *ch, char *argument )
     else if (IS_DRAGON(ch) && IS_DRAGAFF(ch, DRAG_MAGIC)) wait *= .7;
     else if (IS_ELEM(ch) && (ch->pcdata->powers[ELEM_TIME] >= 8)) wait *= .7;
 
+    if (restored) wait = UMAX(1, wait);
     WAIT_STATE(ch, wait);
 
     ch->mana -= mana;
 
-    level = 5 + ch->stats[STAT_INT] * 5;
+    level = restored ? 5 + URANGE(0, ch->stats[STAT_INT], 19) * 5
+        : 5 + ch->stats[STAT_INT] * 5;
 
+    casting_room = ch->in_room;
     (*skill_table[sn].spell_fun) (sn, level, ch, vo);
 
     if ((skill_table[sn].target == TAR_DEATH || skill_table[sn].target == TAR_CHAR_OFFENSIVE) && victim != ch
-     && victim->in_room == ch->in_room && victim->fighting == NULL && IS_AWAKE(victim))
+     && combat_pair_in_room(casting_room, ch, victim)
+     && victim->fighting == NULL && IS_AWAKE(victim))
 	multi_hit(victim, ch);
 
     return;
@@ -351,6 +375,7 @@ void do_cast( CHAR_DATA *ch, char *argument )
  */
 void obj_cast_spell( long sn, long level, CHAR_DATA *ch, CHAR_DATA *victim, OBJ_DATA *obj )
 {
+    ROOM_INDEX_DATA *casting_room;
     void *vo;
 
     if ( sn <= 0 )
@@ -419,11 +444,13 @@ void obj_cast_spell( long sn, long level, CHAR_DATA *ch, CHAR_DATA *victim, OBJ_
     }
 
     target_name = "";
-    (*skill_table[sn].spell_fun) ( sn, level, ch, vo );
+    casting_room = ch->in_room;
     WAIT_STATE(ch, skill_table[sn].beats);
+    (*skill_table[sn].spell_fun) ( sn, level, ch, vo );
 
     if ((skill_table[sn].target == TAR_CHAR_OFFENSIVE || skill_table[sn].target == TAR_DEATH) && victim != ch
-     && victim->in_room == ch->in_room && victim->fighting == NULL && IS_AWAKE(victim))
+     && combat_pair_in_room(casting_room, ch, victim)
+     && victim->fighting == NULL && IS_AWAKE(victim))
 	multi_hit(victim, ch);
 
     return;
@@ -736,7 +763,18 @@ void spell_continual_light( long sn, long level, CHAR_DATA *ch, void *vo )
 
 void spell_control_weather( long sn, long level, CHAR_DATA *ch, void *vo )
 {
-    return;
+    long change;
+    (void)sn; (void)vo;
+    if (str_cmp(target_name, "better") && str_cmp(target_name, "worse"))
+    {
+        stc("Use cast 'control weather' better or worse.\n\r", ch);
+        return;
+    }
+    /* EM's weather-trend effect, with bounded arithmetic and no empty cast. */
+    change = dice(UMAX(1, URANGE(1, level, 100) / 3), 4);
+    if (!str_cmp(target_name, "worse")) change = -change;
+    weather_info.change = URANGE(-12, weather_info.change, 12) + change;
+    stc("You bend the weather toward your will.\n\r", ch);
 }
 
 
@@ -1120,7 +1158,33 @@ void spell_enchant_armor( long sn, long level, CHAR_DATA *ch, void *vo )
 
 void spell_energy_drain( long sn, long level, CHAR_DATA *ch, void *vo )
 {
-    return;
+    CHAR_DATA *victim = vo;
+    ROOM_INDEX_DATA *origin;
+    long before, dealt, dam, drain;
+    if (ch == NULL || ch == victim) return;
+    origin = ch->in_room;
+    if (!combat_pair_in_room(origin, ch, victim) || is_safe(ch, victim)) return;
+    level = URANGE(1, level, 100);
+    if (saves_spell(level, victim)
+        || (!IS_NPC(victim) && victim->pcdata->atm >= number_percent()))
+    {
+        stc("Your target resists the energy drain.\n\r", ch);
+        return;
+    }
+    /* EM's ordinary die roll, not its caster-HP attack against low levels.
+     * Genesis has no corresponding IMM_DRAIN/Hero/Demon mechanics to import. */
+    before = victim->hit;
+    dam = number_range(1, level);
+    dam = UMIN(dam, before);
+    damage(ch, victim, dam, sn, "energy drain");
+    /* Damage can reflect, recall, incapacitate or extract either participant.
+     * Grant benefits only from confirmed damage to a surviving local target. */
+    if (!combat_pair_in_room(origin, ch, victim) || victim->hit >= before) return;
+    dealt = before - victim->hit;
+    drain = number_range(1, 10);
+    if (victim->mana > 0) victim->mana -= UMIN(victim->mana, drain);
+    /* Genesis has no movement resource; do not import EM's move drain. */
+    if (ch->hit < ch->max_hit) ch->hit += UMIN(dealt, ch->max_hit - ch->hit);
 }
 
 

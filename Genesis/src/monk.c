@@ -187,7 +187,7 @@ void do_repeat( CHAR_DATA *ch, char *argument )
         return;
     }
 
-    if ((victim = ch->fighting) == NULL)
+    if ((victim = arg[0] == '\0' ? ch->fighting : NULL) == NULL)
     {
 	if ((victim = get_char_room(ch, arg)) == NULL)
 	{
@@ -209,14 +209,14 @@ void do_repeat( CHAR_DATA *ch, char *argument )
 
     for (loop = 0; loop <= get_monk(ch, MONK_TECH) / 2; loop++)
     {
-	if (victim == NULL) break;
+if (!combat_target_live(ch, victim)) break;
 	if (ch->mana < 600)
 	{
 	    stc("You don't have enough mana to continue\n\r", ch);
 	    break;
 	}
-	one_hit(ch, victim, TYPE_UNARMED, "repeating fist");
 	ch->mana -= 600;
+one_hit(ch, victim, TYPE_UNARMED, "repeating fist");
     }
 
     WAIT_STATE(ch, 15);
@@ -256,7 +256,7 @@ void do_aurashot( CHAR_DATA *ch, char *argument )
 	return;
     }
 
-    if ((victim = ch->fighting) == NULL)
+    if ((victim = arg[0] == '\0' ? ch->fighting : NULL) == NULL)
     {
 	if ((victim = get_char_room(ch, arg)) == NULL)
 	{
@@ -463,7 +463,7 @@ void do_cripple( CHAR_DATA *ch, char *argument )
 	return;
     }
 
-    if ((victim = ch->fighting) == NULL)
+    if ((victim = arg[0] == '\0' ? ch->fighting : NULL) == NULL)
     {
 	if ((victim = get_char_room(ch, arg)) == NULL)
 	{

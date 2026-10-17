@@ -183,3 +183,73 @@ valid and malformed generation values, and a six-cast generation-9 budget.
 The seeded engine RNG also runs 1,536 near-limit cases: random amounts must be
 evaluated once before `UMIN`, whose double evaluation could otherwise overfill
 the caster or overdraw the victim. This regression reproduced the pre-fix bug.
+
+## All-ten-class runtime follow-up
+
+The source catalog contains 580 registered command names (547 distinct
+handlers) and 113 named skill records. The 15 primary class source files
+contain 259 command-handler definitions; shared abilities in `more.c`, magic,
+combat and class/stat helpers also matter. Catalog counts are not claims that
+every command has been playtested. The audit examined registration, advertised
+names/ranks, resources and lifetime-sensitive attack paths across all classes.
+
+| Class | Follow-up findings and coverage |
+| --- | --- |
+| Vampire | Corrected advertised names (`beastwithin`, `horrid`, `empathy`, `malleable`), several unlock ranks, and the missing Potence-7 `fist` listing. Object-form recovery covered below. |
+| Werewolf | Fixed Falling Touch's victim access after lethal damage; marked gutted Quicksand/Lycaon disabled in listings. `powers` no longer appends an erroneous “Huh?” after the Werewolf listing. |
+| Sorcerer | Existing safety and independent AoE damage regressions retained; no additional confirmed class-specific defect in this pass. |
+| Drow | Acid Bolt respects explicit/invalid names. Crossbow's scoped ranged view restores origin on protected/missing targets, extraction and missing sleep skill, without movement hooks cancelling stealth/darkness/silence. |
+| Highlander | Bash checks self/safety before combat and applies victim lag before potentially extracting damage. Explicit names do not silently fall back to another opponent. |
+| Mage | Inferno sets burning before potentially extracting damage and computes per-target NPC damage independently. Existing payment/remote-target regressions retained. |
+| Dragon | Breath, tail and dust respect explicit/invalid names instead of silently choosing a current opponent. |
+| Ninja | Trip/circle no longer fall back to a current opponent for an invalid explicit name. Existing bomb safety and Vanish charging tests retained. |
+| Monk | Repeat stops after target extraction or caster relocation and pays 600 mana per attempted hit, not after damage. Aura Shot/Cripple honor explicit names. |
+| Elementalist | Icicle Storm pays its existing 150 x Water cost and rejects unsafe/self targets before payment. Flare Arrow, Wind Blades and Stoneblast revalidate chained targets; Stoneblast stops if the caster relocates. Seven targeted handlers honor explicit names. |
+
+These fixes preserve progression caps and existing activation amounts, except
+that formerly missing payments now occur. The thirteenth C suite exercises
+actual class handlers with synthetic service contracts: lethal NPC unlink/free,
+caster relocation, surviving multi-hit counts, exact resource boundaries,
+explicit/missing targets and crossbow restoration. Mage tests also free an
+Inferno victim inside its damage callback.
+Crossbow retains its legacy temporary room-pointer view internally; replacing
+that with a dedicated ranged-combat API remains a future refactor. Shots do
+not physically move the caster or invoke departure/arrival effects.
+
+The existing full-engine Vampire suite now covers 85 Cauldron envelopes:
+all ten target classes, five max-HP tiers (10k, 50k, 100k, 1m and `LONG_MAX`),
+and Vampire Fortitude 0–7. It verifies bounded arithmetic, defense ranges and
+50-blood/20-pulse payment, not equal PvP power or sustainable DPS.
+
+### Remaining-risk work completed
+
+Read-only examination of the 60 area files named by the bundled `area.lst`
+found no Hell room 30000. Plasma/Mummify could remove a character from the
+object room before attempting to enter that missing room. They now resolve
+Hell, then the configured temple, **before** destroying the body; if neither
+exists, they leave form/body intact and report the problem. Full-engine tests
+cover both destinations, no destination, body extraction, ownership mismatch
+and wrong-form attempts. A bodyless but still active form can be reverted.
+The literal class object/mobile/room references are checked against the
+loaded area files; computed vnums remain outside that structural check.
+
+Control Weather/Energy Drain had empty but formerly player-callable handlers.
+After checking EM, both received the guarded adaptations documented in
+[RESTORED_SPELLS.md](RESTORED_SPELLS.md), rather than speculative replacement
+mechanics. The remaining 21 empty legacy spells stay at unavailable level 99;
+the catalog check prevents advertising an empty spell as player-castable.
+
+### Still unverified or deliberately unresolved
+
+- Quicksand/Lycaon and Malkavian mapping are not restored; Mage sphere prose
+  still contains placeholders.
+- Full multiplayer balance, sustained regeneration/feeding, equipment-heavy
+  matchups and generic indirect lag behavior outside the guarded powers remain.
+- Combat resource transfers are not multi-character durable transactions.
+  Post-rename fsync uncertainty and crash/power-loss testing remain.
+- Initial Thaumaturgy teacher seeding requires an operator; no arbitrary
+  player is granted that discipline automatically.
+- Dynamic world references, legacy spell objects, privileged commands,
+  non-player persistence and long-running sessions are not exhaustively tested.
+- CI's systemd verification does not start a live service or validate a real
+  host's sandbox, permissions, firewall, backup/restore or rollback procedure.

@@ -3173,6 +3173,8 @@ extern LEADER_BOARD leader_board;
 
 /* fight.c */
 void    combat_status_update args( ( void ) );
+bool    combat_target_live args( ( CHAR_DATA *ch, CHAR_DATA *victim ) );
+bool    combat_pair_in_room args( ( ROOM_INDEX_DATA *room, CHAR_DATA *ch, CHAR_DATA *victim ) );
 void	violence_update	args( ( void ) );
 void	multi_hit	args( ( CHAR_DATA *ch, CHAR_DATA *victim ) );
 long	get_speed	args( ( CHAR_DATA *ch ) );

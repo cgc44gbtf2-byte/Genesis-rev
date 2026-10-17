@@ -11,6 +11,7 @@ static bool protected_room;
 static int safe_calls, die = 10;
 static long damage_total;
 static int spiritward_calls;
+static bool extract_npc;
 static char messages[16384];
 
 void send_to_char(const char *text, CHAR_DATA *ch)
@@ -61,7 +62,17 @@ bool is_safe(CHAR_DATA *ch, CHAR_DATA *victim)
 int number_range(int a, int b) { return a == 1 && b == 10 ? die : a; }
 int number_percent(void) { return 100; }
 void hurt_person(CHAR_DATA *ch, CHAR_DATA *victim, long dam)
-{ (void)ch; damage_total += dam; victim->hit -= dam; }
+{
+    (void)ch;
+    damage_total += dam;
+    if (extract_npc && IS_NPC(victim))
+    {
+        char_from_room(victim);
+        free(victim);
+        return;
+    }
+    victim->hit -= dam;
+}
 void update_pos(CHAR_DATA *ch) { (void)ch; }
 void set_fighting(CHAR_DATA *ch, CHAR_DATA *v) { ch->fighting = v; }
 bool is_same_group(CHAR_DATA *ch, CHAR_DATA *v) { return ch == v; }
@@ -115,6 +126,7 @@ static void reset(void)
     protected_room = FALSE;
     safe_calls = 0;
     damage_total = 0;
+    extract_npc = FALSE;
     die = 10;
     messages[0] = '\0';
 }
@@ -131,6 +143,19 @@ static void unchanged(long mana)
 
 int main(void)
 {
+    reset();
+    {
+        CHAR_DATA *mob = calloc(1, sizeof(*mob));
+        assert(mob);
+        mob->act = ACT_IS_NPC;
+        mob->name = "synthetic mob";
+        mob->hit = mob->max_hit = 10000;
+        char_to_room(mob, &home);
+        extract_npc = TRUE;
+        do_inferno(&caster, "0");
+        assert(damage_total > 0 && home.people == &caster);
+        assert(caster.mana == 95000 && caster.wait == 12);
+    }
     reset();
     caster.class = CLASS_WEREWOLF;
     do_paradox_ward(&caster, "");

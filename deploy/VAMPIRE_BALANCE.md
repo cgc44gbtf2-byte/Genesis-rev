@@ -137,3 +137,8 @@ drain/boil cases exercise interior random-range boundaries, not an uninitialized
 all-zero RNG that would always select the minimum.
 Original teaching, save-failure, consent, target protection, buff serialization,
 world-tick expiry and combat/torpor checks remain.
+
+The all-class follow-up adds 85 full-engine Cauldron envelope cases covering
+all ten classes, max HP 10k/50k/100k/1m/`LONG_MAX`, and Vampire Fortitude 0–7.
+These verify damage/resource bounds and extreme arithmetic, **not** a live
+duel, sustained DPS or a decision that percentage damage needs no tuning.

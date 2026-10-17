@@ -170,7 +170,7 @@ void do_acidbolt( CHAR_DATA *ch, char *argument )
 	return;
     }
 
-    if ((victim = ch->fighting) == NULL && (victim = get_char_room(ch, arg)) == NULL)
+    if ((victim = arg[0] ? get_char_room(ch, arg) : ch->fighting) == NULL)
     {
 	stc("They aren't here.\n\r", ch);
 	return;
@@ -672,6 +672,7 @@ void do_shoot( CHAR_DATA *ch, char *argument )
     ROOM_INDEX_DATA *to_room;
     EXIT_DATA *pexit;
     CHAR_DATA *victim;
+    CHAR_DATA *live;
     OBJ_DATA *obj;
     AFFECT_DATA af;
     char arg1[MIL];
@@ -770,14 +771,15 @@ void do_shoot( CHAR_DATA *ch, char *argument )
 	return;
     }
 
+    /* Scoped legacy ranged view, not physical travel: movement hooks would
+     * cancel stealth/darkness/silence merely for firing a crossbow. */
     ch->in_room = to_room;
 
     if ((victim = get_char_room(ch, arg2)) != NULL)
     {
 	if (is_safe(ch, victim))
 	{
-	    ch->in_room = location;
-	    return;
+	    goto shoot_restore;
 	}
 	sprintf(buf, "A crossbow bolt comes flying in from the %s and strikes $N.", revdoor);
 	act(buf, ch, NULL, victim, TO_NOTVICT);
@@ -788,7 +790,9 @@ void do_shoot( CHAR_DATA *ch, char *argument )
 	if (!IS_NPC(victim)) damage /= 10;
 
 	hurt_person(ch, victim, damage);
-	if (victim == NULL) return;
+        for (live = to_room->people; live != NULL && live != victim; live = live->next_in_room)
+            ;
+        if (live == NULL || live->hit <= 0 || live->position == POS_DEAD) goto shoot_restore;
 
 	if (IS_DROW(victim) && get_drow(victim, DROW_PIMM))
 	{
@@ -797,8 +801,8 @@ void do_shoot( CHAR_DATA *ch, char *argument )
 	}
 	else if (!IS_AFFECTED(victim, AFF_SLEEP))
 	{
+    	    if ((sn = skill_lookup("sleep")) < 0) goto shoot_restore;
 	    do_stance(victim, "");
-    	    if ((sn = skill_lookup("sleep")) < 0) return;
     	    af.type = sn;
     	    af.location = APPLY_NONE;
     	    af.modifier = 0;
@@ -809,6 +813,7 @@ void do_shoot( CHAR_DATA *ch, char *argument )
   	}
     }
  
+shoot_restore:
     ch->in_room = location;
     return;
 }

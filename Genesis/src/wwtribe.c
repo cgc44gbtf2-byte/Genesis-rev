@@ -1524,9 +1524,9 @@ void do_falling( CHAR_DATA *ch, char *argument )
     sprintf(buf, "$n touches you, sending you sprawling! [#r%li#n]",damage);
     act(buf, ch, NULL, victim, TO_VICT);
 
-    hurt_person(ch, victim, damage);
     WAIT_STATE(ch, 24);
     WAIT_STATE(victim, 12);
+    hurt_person(ch, victim, damage);
     return;
 }
 

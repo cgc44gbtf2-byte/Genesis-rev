@@ -52,6 +52,12 @@ long get_trust(CHAR_DATA *ch)
     return IS_NPC(ch) ? 1 : ch->level;
 }
 
+long get_disc(CHAR_DATA *ch, long disc) { return ch->pcdata->powers[disc]; }
+void do_wwpowers(CHAR_DATA *ch, char *arg)
+{ (void)arg; send_to_char("Werewolf listing\n", ch); }
+void do_magepowers(CHAR_DATA *ch, char *arg)
+{ (void)arg; send_to_char("Mage listing\n", ch); }
+
 /* Isolate the selection thresholds from the separate stat-cap calculation. */
 int raw_stat(CHAR_DATA *ch, int stat)
 {
@@ -325,8 +331,44 @@ static void test_rejections(void)
     free_string(ch.clan);
 }
 
+static void test_power_listings(void)
+{
+    CHAR_DATA ch = {0};
+    PC_DATA pc = {0};
+    ch.pcdata = &pc;
+    ch.class = CLASS_WEREWOLF;
+    output[0] = '\0';
+    do_powers(&ch, "");
+    assert(strstr(output, "Werewolf listing") && !strstr(output, "Huh?"));
+    ch.class = CLASS_VAMPIRE;
+    struct { int disc, rank; char *yes, *no; } cases[] = {
+        {DISC_ANIMALISM, 4, "Beastwithin", " Fleshbond"},
+        {DISC_CHIMERSTRY, 7, "Horrid", "Horridreality"},
+        {DISC_VICISSITUDE, 1, "Malleable", "Changeling"},
+        {DISC_PRESENCE, 7, "Empathy", "MaskEmpathy"},
+        {DISC_DOMINATE, 3, "Possession", "Huh?"},
+        {DISC_NECROMANCY, 1, "Spiriteyes", " Preserve"},
+        {DISC_NECROMANCY, 2, "Preserve", " Spiritgate"},
+        {DISC_NECROMANCY, 3, "Spiritgate", " Spiritguardian"},
+        {DISC_NECROMANCY, 4, "Spiritguardian", " Zombie"},
+        {DISC_NECROMANCY, 5, "Zombie", " Torment"},
+        {DISC_OBFUSCATE, 6, "Shield", "Huh?"},
+        {DISC_QUIETUS, 6, "Leech", "Huh?"},
+        {DISC_POTENCE, 7, "Potence: Fist", "All your discipline powers are automatic"}
+    };
+    for (size_t i = 0; i < sizeof(cases)/sizeof(cases[0]); ++i)
+    {
+        memset(pc.powers, 0, sizeof(pc.powers));
+        pc.powers[cases[i].disc] = cases[i].rank;
+        output[0] = '\0';
+        do_powers(&ch, "");
+        assert(strstr(output, cases[i].yes) && !strstr(output, cases[i].no));
+    }
+}
+
 int main(void)
 {
+    test_power_listings();
     test_prerequisites();
     test_vampires();
     test_mages_and_dragons();

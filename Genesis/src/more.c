@@ -519,9 +519,24 @@ void do_zuloform( CHAR_DATA *ch, char *argument )
     return;
 }
 
+/* The bundled world has no Hell room. Resolve an object-form escape before
+ * destroying its body; prefer the historical destination, then the temple.
+ * If neither exists, leave the form and object intact for staff recovery. */
+static ROOM_INDEX_DATA *object_form_return_room(CHAR_DATA *ch)
+{
+    ROOM_INDEX_DATA *destination = ch->in_room;
+    if (destination != NULL && destination->vnum == ROOM_VNUM_IN_OBJECT)
+    {
+        destination = get_room_index(ROOM_VNUM_HELL);
+        if (destination == NULL) destination = get_room_index(ROOM_VNUM_TEMPLE);
+    }
+    return destination;
+}
+
 void do_plasmaform( CHAR_DATA *ch, char *argument )
 {
     OBJ_DATA *obj;
+    ROOM_INDEX_DATA *destination;
     if (IS_NPC(ch)) return;
 
     if (!IS_VAMPIRE(ch) || IS_MORE(ch, MORE_HEAD))
@@ -547,23 +562,31 @@ void do_plasmaform( CHAR_DATA *ch, char *argument )
 	return;
     }
 
-    if ( ( obj = ch->pcdata->chobj ) != NULL && IS_EXTRA(ch, EXTRA_OSWITCH))
+    if (IS_MORE(ch, MORE_PLASMA))
     {
+        obj = ch->pcdata->chobj;
+        destination = object_form_return_room(ch);
+        if (destination == NULL || (obj != NULL && obj->chobj != ch))
+        {
+            stc("Your return is unavailable. Please contact staff.\n\r", ch);
+            return;
+        }
 	ch->pcdata->obj_vnum = 0;
-	obj->chobj = NULL;
+	if (obj != NULL) obj->chobj = NULL;
 	ch->pcdata->chobj = NULL;
 	REMOVE_BIT(ch->affected_by, AFF_POLYMORPH);
 	REMOVE_BIT(ch->extra, EXTRA_OSWITCH);
 	REMOVE_BIT(ch->more, MORE_PLASMA);
 	free_string(ch->morph);
 	ch->morph = str_dup("");
-	act("$p transforms into $n.",ch,obj,NULL,TO_ROOM);
+	if (obj != NULL) act("$p transforms into $n.",ch,obj,NULL,TO_ROOM);
+        else act("$n reforms a human body.",ch,NULL,NULL,TO_ROOM);
 	act("Your reform your human body.",ch,obj,NULL,TO_CHAR);
-	extract_obj(obj);
-	if (ch->in_room->vnum == ROOM_VNUM_IN_OBJECT)
+	if (obj != NULL) extract_obj(obj);
+	if (ch->in_room != destination)
 	{
 	    char_from_room(ch);
-	    char_to_room(ch,get_room_index(ROOM_VNUM_HELL));
+	    char_to_room(ch, destination);
 	}
 	return;
     }
@@ -901,6 +924,7 @@ void do_tongue( CHAR_DATA *ch, char *argument )
 void do_mummify( CHAR_DATA *ch, char *argument )
 {
     OBJ_DATA *obj;
+    ROOM_INDEX_DATA *destination;
     if (IS_NPC(ch)) return;
 
     if (!IS_VAMPIRE(ch))
@@ -915,23 +939,31 @@ void do_mummify( CHAR_DATA *ch, char *argument )
 	return;
     }
 
-    if ( ( obj = ch->pcdata->chobj ) != NULL && IS_EXTRA(ch, EXTRA_OSWITCH))
+    if (IS_MORE(ch, MORE_MUMMIFIED))
     {
+        obj = ch->pcdata->chobj;
+        destination = object_form_return_room(ch);
+        if (destination == NULL || (obj != NULL && obj->chobj != ch))
+        {
+            stc("Your return is unavailable. Please contact staff.\n\r", ch);
+            return;
+        }
 	REMOVE_BIT(ch->more, MORE_MUMMIFIED);
 	ch->pcdata->obj_vnum = 0;
-	obj->chobj = NULL;
+	if (obj != NULL) obj->chobj = NULL;
 	ch->pcdata->chobj = NULL;
 	REMOVE_BIT(ch->affected_by, AFF_POLYMORPH);
 	REMOVE_BIT(ch->extra, EXTRA_OSWITCH);
 	free_string(ch->morph);
 	ch->morph = str_dup("");
-	act("$p clambers to $s feet.",ch,obj,NULL,TO_ROOM);
+	if (obj != NULL) act("$p clambers to $s feet.",ch,obj,NULL,TO_ROOM);
+        else act("$n reforms a human body.",ch,NULL,NULL,TO_ROOM);
 	act("Your body unshrivels and returns to normal.",ch,obj,NULL,TO_CHAR);
-	extract_obj(obj);
-	if (ch->in_room->vnum == ROOM_VNUM_IN_OBJECT)
+	if (obj != NULL) extract_obj(obj);
+	if (ch->in_room != destination)
 	{
 	    char_from_room(ch);
-	    char_to_room(ch,get_room_index(ROOM_VNUM_HELL));
+	    char_to_room(ch, destination);
 	}
 	return;
     }

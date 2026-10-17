@@ -13,6 +13,8 @@ tests/test_wall
 tests/test_mage_powers
 tests/test_combat_status
 tests/test_vampire
+tests/test_class_runtime
+tests/test_restored_spells
 tests/stun_engine/
 Genesis/player/
 Genesis/backup/
