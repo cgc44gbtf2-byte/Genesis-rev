@@ -28,6 +28,7 @@
 #include <sys/types.h>
 #endif
 #include <stdio.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -170,14 +171,37 @@ void say_spell( CHAR_DATA *ch, long sn )
  */
 bool saves_spell( long level, CHAR_DATA *victim )
 {
+    AFFECT_DATA *paf;
     long save;
-    long tsave;
+    long quotient = level / 5;
+    long remainder = level % 5;
+    long bless_bonus = 0;
 
-    tsave = 5 + victim->stats[STAT_WIS] * 5;
-
-    save = 50 + (tsave - level);
-    save = URANGE(15, save, 85);
-    return number_percent() < save;
+    /* Exactly clamp 55 + 5*WIS - level without overflowing at malformed
+     * saved-stat or caller-level extremes. level = 5*quotient + remainder;
+     * only differences -8..6 can produce an unclamped threshold. */
+    if (victim->stats[STAT_WIS] > quotient + 6)
+        save = 85;
+    else if (victim->stats[STAT_WIS] < quotient - 8)
+        save = 15;
+    else
+        save = URANGE(15, 55 + 5 * (victim->stats[STAT_WIS] - quotient)
+                                - remainder, 85);
+    /* Only the restored Bless affect is enabled here. The legacy aggregate
+     * saving_throw field includes dormant equipment/class modifiers; making
+     * all of those live would be an unrelated global balance change.
+     * Read one bounded affect, not the aggregate and not repeated copies. */
+    for (paf = victim->affected; paf != NULL; paf = paf->next)
+    {
+        if (paf->type >= 0 && paf->type < MAX_SKILL
+         && skill_table[paf->type].spell_fun == spell_bless
+         && paf->location == APPLY_SAVING_SPELL)
+        {
+            bless_bonus = -URANGE(-12, paf->modifier, 0);
+            break;
+        }
+    }
+    return number_percent() < UMIN(85, save + bless_bonus);
 }
 
 
@@ -186,6 +210,54 @@ bool saves_spell( long level, CHAR_DATA *victim )
  * The kludgy global is for spells who want more stuff from command line.
  */
 char *target_name;
+
+static bool is_basic_buff(long sn)
+{
+    SPELL_FUN *spell;
+    if (sn < 0 || sn >= MAX_SKILL) return FALSE;
+    spell = skill_table[sn].spell_fun;
+    return spell == spell_armor || spell == spell_bless
+        || spell == spell_shield || spell == spell_stone_skin;
+}
+
+/* Shared by normal casting, item casting and direct callbacks. Preflight
+ * never mutates resources: duplicates and invalid targets are free in cast.
+ * Recovery cannot be checked here: generic callers set it before callbacks. */
+static bool basic_buff_ready(long sn, SPELL_FUN *expected,
+                             CHAR_DATA *ch, CHAR_DATA *victim)
+{
+    long bonus;
+    if (!is_basic_buff(sn) || skill_table[sn].spell_fun != expected
+     || ch == NULL || victim == NULL
+     || !combat_pair_in_room(ch->in_room, ch, victim))
+        return FALSE;
+    if ((ch->affected_by & (AFF_ETHEREAL | AFF_DEEPUMBRA | AFF_SHADOWPLANE))
+     != (victim->affected_by & (AFF_ETHEREAL | AFF_DEEPUMBRA | AFF_SHADOWPLANE)))
+    {
+        stc("They are on a different plane.\n\r", ch);
+        return FALSE;
+    }
+    if (skill_table[sn].target == TAR_CHAR_SELF && victim != ch)
+    {
+        stc("You can only cast this spell on yourself.\n\r", ch);
+        return FALSE;
+    }
+    if (is_affected(victim, sn))
+    {
+        stc("That spell is already active.\n\r", ch);
+        return FALSE;
+    }
+    bonus = expected == spell_stone_skin ? 40 : 20;
+    if ((expected == spell_bless
+          && (victim->hitroll > LONG_MAX - 12
+           || victim->saving_throw < LONG_MIN + 12))
+     || (expected != spell_bless && victim->armor > LONG_MAX - bonus))
+    {
+        stc("Their existing modifiers cannot safely accept that spell.\n\r", ch);
+        return FALSE;
+    }
+    return TRUE;
+}
 
 void do_cast( CHAR_DATA *ch, char *argument )
 {
@@ -225,7 +297,8 @@ void do_cast( CHAR_DATA *ch, char *argument )
     }
   
     restored = skill_table[sn].spell_fun == spell_control_weather
-        || skill_table[sn].spell_fun == spell_energy_drain;
+        || skill_table[sn].spell_fun == spell_energy_drain
+        || is_basic_buff(sn);
     if (restored && (ch->wait > 0 || ch->combat_pause > 0))
     {
         stc("You have not recovered enough to cast again.\n\r", ch);
@@ -329,6 +402,10 @@ void do_cast( CHAR_DATA *ch, char *argument )
 	    break;
     }
 	    
+    if (is_basic_buff(sn)
+     && !basic_buff_ready(sn, skill_table[sn].spell_fun, ch, vo))
+        return;
+
     if (ch->mana < mana)
     {
 	stc("You don't have enough mana.\n\r", ch);
@@ -443,6 +520,10 @@ void obj_cast_spell( long sn, long level, CHAR_DATA *ch, CHAR_DATA *victim, OBJ_
         break;
     }
 
+    if (is_basic_buff(sn)
+     && !basic_buff_ready(sn, skill_table[sn].spell_fun, ch, vo))
+        return;
+
     target_name = "";
     casting_room = ch->in_room;
     WAIT_STATE(ch, skill_table[sn].beats);
@@ -485,6 +566,17 @@ void spell_acid_blast( long sn, long level, CHAR_DATA *ch, void *vo )
 
 void spell_armor( long sn, long level, CHAR_DATA *ch, void *vo )
 {
+    CHAR_DATA *victim = vo;
+    AFFECT_DATA af = {0};
+    if (!basic_buff_ready(sn, spell_armor, ch, victim)) return;
+    af.type = sn;
+    af.duration = 24;
+    af.location = APPLY_AC;
+    /* Genesis avoidance uses increasing armor, not the donors' -20 AC. */
+    af.modifier = 20;
+    affect_to_char(victim, &af);
+    stc("Translucent armor surrounds you.\n\r", victim);
+    act("Translucent armor surrounds $n.", victim, NULL, NULL, TO_ROOM);
     return;
 }
 
@@ -492,6 +584,20 @@ void spell_armor( long sn, long level, CHAR_DATA *ch, void *vo )
 
 void spell_bless( long sn, long level, CHAR_DATA *ch, void *vo )
 {
+    CHAR_DATA *victim = vo;
+    AFFECT_DATA af = {0};
+    long bonus = UMAX(1, URANGE(1, level, 100) / 8);
+    if (!basic_buff_ready(sn, spell_bless, ch, victim)) return;
+    af.type = sn;
+    af.duration = 6 + URANGE(1, level, 100);
+    af.location = APPLY_HITROLL;
+    af.modifier = bonus;
+    affect_to_char(victim, &af);
+    af.location = APPLY_SAVING_SPELL;
+    af.modifier = -bonus;
+    affect_to_char(victim, &af);
+    stc("You feel blessed.\n\r", victim);
+    act("$n is blessed.", victim, NULL, NULL, TO_ROOM);
     return;
 }
 
@@ -2016,6 +2122,16 @@ void spell_sanctuary( long sn, long level, CHAR_DATA *ch, void *vo )
 
 void spell_shield( long sn, long level, CHAR_DATA *ch, void *vo )
 {
+    CHAR_DATA *victim = vo;
+    AFFECT_DATA af = {0};
+    if (!basic_buff_ready(sn, spell_shield, ch, victim)) return;
+    af.type = sn;
+    af.duration = 8 + URANGE(1, level, 100);
+    af.location = APPLY_AC;
+    af.modifier = 20;
+    affect_to_char(victim, &af);
+    stc("A force shield surrounds you.\n\r", victim);
+    act("A force shield surrounds $n.", victim, NULL, NULL, TO_ROOM);
     return;
 }
 
@@ -2098,6 +2214,16 @@ void spell_sleep( long sn, long level, CHAR_DATA *ch, void *vo )
 
 void spell_stone_skin( long sn, long level, CHAR_DATA *ch, void *vo )
 {
+    CHAR_DATA *victim = vo;
+    AFFECT_DATA af = {0};
+    if (!basic_buff_ready(sn, spell_stone_skin, ch, victim)) return;
+    af.type = sn;
+    af.duration = URANGE(1, level, 100);
+    af.location = APPLY_AC;
+    af.modifier = 40;
+    affect_to_char(victim, &af);
+    stc("Your skin hardens like stone.\n\r", victim);
+    act("$n's skin hardens like stone.", victim, NULL, NULL, TO_ROOM);
     return;
 }
 

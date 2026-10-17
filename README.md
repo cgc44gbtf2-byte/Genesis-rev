@@ -89,7 +89,7 @@ on all interfaces by default; restrict access with the host firewall.
 
 ## Verification and remaining scope
 
-Fourteen regression suites cover network/authentication, data readers,
+Fifteen regression suites cover network/authentication, data readers,
 editor/command buffer boundaries, atomic player saves and signal handling,
 and gameplay fixes. Normal and ASan/UBSan suites passed locally. The complete
 server compiled and booted with original area/help data in an isolated
@@ -157,7 +157,7 @@ See [Debian/Ubuntu installation](deploy/INSTALL.md) and the reviewed
 account, a root-owned read-only executable and restricted writable data
 directories. No service is installed or enabled by this repository.
 
-CI validates the unit without starting systemd, runs fourteen normal/sanitizer
+CI validates the unit without starting systemd, runs fifteen normal/sanitizer
 suites, and boots an isolated world then verifies a clean SIGTERM exit.
 Unit validation does not prove the sandbox or service operates correctly
 on every host; follow the installation guide's host-level checks.

@@ -2,7 +2,7 @@ CC ?= cc
 LDLIBS ?= -lcrypt
 TEST_FLAGS = -std=gnu17 -O1 -g -ffunction-sections -fdata-sections
 TEST_LDFLAGS = -Wl,--gc-sections
-TESTS = tests/test_comm tests/test_db tests/test_gameplay tests/test_buffers tests/test_save tests/test_signals tests/test_classes tests/test_powers tests/test_wall tests/test_mage_powers tests/test_combat_status tests/test_vampire tests/test_class_runtime tests/test_restored_spells
+TESTS = tests/test_comm tests/test_db tests/test_gameplay tests/test_buffers tests/test_save tests/test_signals tests/test_classes tests/test_powers tests/test_wall tests/test_mage_powers tests/test_combat_status tests/test_vampire tests/test_class_runtime tests/test_restored_spells tests/test_basic_buffs
 ENGINE_OBJECTS = $(patsubst Genesis/src/%.c,tests/stun_engine/%.o,$(wildcard Genesis/src/*.c))
 
 .PHONY: all test sanitize clean
@@ -36,7 +36,7 @@ test: $(TESTS)
 
 # Link the real engine, including actual safety, combat and interpreter paths.
 # Only the server entry point is renamed; no real accounts/world files load.
-tests/test_combat_status tests/test_vampire: tests/%: tests/%.c $(ENGINE_OBJECTS)
+tests/test_combat_status tests/test_vampire tests/test_basic_buffs: tests/%: tests/%.c $(ENGINE_OBJECTS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_FLAGS) $< $(ENGINE_OBJECTS) $(LDFLAGS) $(TEST_LDFLAGS) $(LDLIBS) -o $@
 
 # Separate test objects keep sanitizer flags out of the production executable.

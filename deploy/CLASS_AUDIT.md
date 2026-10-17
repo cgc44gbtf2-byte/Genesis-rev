@@ -236,7 +236,9 @@ loaded area files; computed vnums remain outside that structural check.
 Control Weather/Energy Drain had empty but formerly player-callable handlers.
 After checking EM, both received the guarded adaptations documented in
 [RESTORED_SPELLS.md](RESTORED_SPELLS.md), rather than speculative replacement
-mechanics. The remaining 21 empty legacy spells stay at unavailable level 99;
+mechanics. Armor, Bless, Shield and Stone Skin were subsequently restored with
+the limited adaptations documented in RESTORED_SPELLS.md. The remaining
+17 empty legacy spells stay at unavailable level 99;
 the catalog check prevents advertising an empty spell as player-castable.
 
 ### Still unverified or deliberately unresolved

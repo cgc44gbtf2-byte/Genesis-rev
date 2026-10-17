@@ -88,14 +88,14 @@ const	struct	skill_type	skill_table	[MAX_SKILL]	=
     },
 
     {
-	"armor",		99,
+	"armor",		LEV_AWA,
 	spell_armor,		TAR_CHAR_DEFENSIVE,	POS_STANDING,
 	NULL,			SLOT( 1),	 5,	12,
 	"",			"You feel less protected."
     },
 
     {
-	"bless",		99,
+	"bless",		LEV_AWA,
 	spell_bless,		TAR_CHAR_DEFENSIVE,	POS_STANDING,
 	NULL,			SLOT( 3),	 5,	12,
 	"",			"You feel less righteous."
@@ -480,7 +480,7 @@ const	struct	skill_type	skill_table	[MAX_SKILL]	=
     },
 
     {
-	"shield",		99,
+	"shield",		LEV_AWA,
 	spell_shield,		TAR_CHAR_DEFENSIVE,	POS_STANDING,
 	NULL,			SLOT(67),	12,	18,
 	"",			"Your force shield shimmers then fades away."
@@ -501,7 +501,7 @@ const	struct	skill_type	skill_table	[MAX_SKILL]	=
     },
 
     {
-	"stone skin",		99,
+	"stone skin",		LEV_AWA,
 	spell_stone_skin,	TAR_CHAR_SELF,		POS_STANDING,
 	NULL,			SLOT(66),	12,	18,
 	"",			"Your skin feels soft again."

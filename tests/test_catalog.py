@@ -48,7 +48,26 @@ class CatalogChecks(unittest.TestCase):
             if handler in empty:
                 self.assertEqual(level, "99", f"empty but castable spell: {name}")
                 checked += 1
-        self.assertGreater(checked, 0)
+        self.assertEqual(checked, 17)
+
+    def test_basic_buffs_keep_historical_slots_and_gated_strength(self):
+        table = (SRC / "const.c").read_text().split("skill_table", 1)[1]
+        pattern = (
+            r'\{\s*"([^"]+)"\s*,\s*(\w+)\s*,\s*(spell_\w+)\s*,'
+            r'\s*(TAR_\w+)\s*,\s*(POS_\w+)\s*,\s*(?:NULL|&\w+)\s*,'
+            r'\s*SLOT\(\s*(\d+)\s*\)\s*,\s*(\d+)\s*,\s*(\d+)')
+        rows = {r[0]: r[1:] for r in re.findall(pattern, table)}
+        expected = {
+            "armor": ("spell_armor", "TAR_CHAR_DEFENSIVE", "1", "5", "12"),
+            "bless": ("spell_bless", "TAR_CHAR_DEFENSIVE", "3", "5", "12"),
+            "shield": ("spell_shield", "TAR_CHAR_DEFENSIVE", "67", "12", "18"),
+            "stone skin": ("spell_stone_skin", "TAR_CHAR_SELF", "66", "12", "18"),
+        }
+        for name, (handler, target, slot, mana, beats) in expected.items():
+            self.assertEqual(rows[name], ("LEV_AWA", handler, target,
+                                         "POS_STANDING", slot, mana, beats))
+        for name in ("giant strength", "weaken", "refresh", "frenzy", "darkblessing"):
+            self.assertEqual(rows[name][0], "99", name)
 
     def test_literal_class_world_references(self):
         # Read only the area files named by area.lst, never account archives.
