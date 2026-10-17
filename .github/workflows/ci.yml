@@ -27,7 +27,9 @@ jobs:
           install -D -m 0755 Genesis/src/merc /opt/anathema/src/merc
           systemd-analyze verify deploy/anathema.service
       - name: Regression tests
-        run: make test
+        run: |
+          make test
+          python3 tests/test_catalog.py
       - name: Isolated boot and graceful stop
         run: python3 tests/smoke_shutdown.py
       - name: Address and undefined-behavior sanitizers

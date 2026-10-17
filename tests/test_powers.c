@@ -54,13 +54,13 @@ void act2(const char *text, CHAR_DATA *ch, const void *a, const void *b, long ty
 long get_trust(CHAR_DATA *ch) { (void)ch; return 0; }
 long get_ninja(CHAR_DATA *ch, long power)
 {
-    assert(ch == &chars[0] && power == NINJA_SORA);
+    assert(ch == &chars[0] && (power == NINJA_SORA || power == NINJA_CHIKYU));
     return 10;
 }
 long get_monk(CHAR_DATA *ch, long power)
 {
     assert(ch == &chars[0] && power == MONK_MANTRA);
-    return 5;
+    return players[0].monk[MONK_MANTRA] ? players[0].monk[MONK_MANTRA] : 5;
 }
 bool get_drow(CHAR_DATA *ch, long power)
 {
@@ -102,12 +102,20 @@ void hurt_person(CHAR_DATA *ch, CHAR_DATA *victim, long damage)
 void set_fighting(CHAR_DATA *ch, CHAR_DATA *victim) { ch->fighting = victim; }
 int number_range(int from, int to)
 {
+    if (from == 400 && to == 600) return 600;
     if (from == 100 && to == 140) return 120;
     if (from == 1 && to == 500) return 200;
     if (from == 1 && to == 40) return 40;
     assert(!"unexpected random draw");
     return from;
 }
+void update_pos(CHAR_DATA *ch) { (void)ch; }
+int number_door(void) { return 0; }
+long get_tribe(CHAR_DATA *ch, long tribe) { (void)ch; (void)tribe; return 0; }
+int number_percent(void) { return 100; }
+void move_char(CHAR_DATA *ch, long door) { (void)ch; (void)door; assert(0); }
+void stop_fighting(CHAR_DATA *ch, bool both) { (void)ch; (void)both; assert(0); }
+char *const dir_name[] = {"north", "east", "south", "west", "up", "down"};
 /* Retained by the damage function's unused next-page branches. */
 #define UNREACHED() assert(!"unexpected spell-chain dependency")
 CHAR_DATA *get_char_world(CHAR_DATA *ch, char *arg)
@@ -293,6 +301,24 @@ static void test_area(bool sorcerer, bool reverse)
 
 int main(void)
 {
+    reset(CLASS_MONK);
+    players[0].monk[MONK_MANTRA] = 8;
+    chars[1].hit = 100;
+    chars[1].max_hit = 10000;
+    chars[0].mana = 5000;
+    do_touch(&chars[0], "target");
+    assert(chars[1].hit == 100 && chars[0].mana == 5000 && chars[0].wait == 0);
+    chars[0].mana = 7200;
+    do_touch(&chars[0], "target");
+    assert(chars[1].hit == 4900 && chars[0].mana == 0);
+    reset(CLASS_NINJA);
+    chars[0].fighting = &chars[1];
+    players[0].ninja[NINJA_KI] = 19;
+    do_mienaku(&chars[0], "");
+    assert(players[0].ninja[NINJA_KI] == 19);
+    players[0].ninja[NINJA_KI] = 20;
+    do_mienaku(&chars[0], "");
+    assert(players[0].ninja[NINJA_KI] == 0);
     test_bomb();
     test_favour();
     test_disc();

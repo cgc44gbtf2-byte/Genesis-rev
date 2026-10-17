@@ -84,12 +84,12 @@ void do_monklearn( CHAR_DATA *ch, char *argument )
 	    stc("Techs - Fighting techniques and powers.\n\r", ch);
 	    if (get_monk(ch, MONK_TECH) < 1) stc("You have no Techs.\n\r", ch);
 	    if (get_monk(ch, MONK_TECH) >= 1) stc("1: Repeating Fist - Multihit technique. (repeat)\n\r", ch);
-	    if (get_monk(ch, MONK_TECH) >= 2) stc("2: Aura Shot      - Life stealing attack. (aura)\n\r", ch);
+    if (get_monk(ch, MONK_TECH) >= 2) stc("2: Aura Shot      - Life stealing attack. (aurashot)\n\r", ch);
 	    if (get_monk(ch, MONK_TECH) >= 3) stc("3: Blitz          - Area affect damage. (blitz)\n\r", ch);
 	    if (get_monk(ch, MONK_TECH) >= 4) stc("4: Invite Beast   - Possesses weak creatures. (invite)\n\r", ch);
 	    if (get_monk(ch, MONK_TECH) >= 5) stc("5: Crippling Kick - Mana burning kick. (cripple)\n\r", ch);
 	    if (get_monk(ch, MONK_TECH) >= 6) stc("6: Dark Blaze     - Blinds your foes. (darkblaze)\n\r", ch);
-	    if (get_monk(ch, MONK_TECH) >= 7) stc("7: Stun Fist      - Damaging stun attack. (stun)\n\r", ch);
+    if (get_monk(ch, MONK_TECH) >= 7) stc("7: Stun Fist      - Currently disabled. (stunfist)\n\r", ch);
 	    if (get_monk(ch, MONK_TECH) >= 8) stc("8: Chimera Form   - Powerful form. (chimera)\n\r", ch);
 	    return;
 	}
@@ -694,7 +694,7 @@ void do_touch(CHAR_DATA *ch, char *argument)
 {
     CHAR_DATA *victim;
     char arg[MIL];
-    long heal;
+    long heal, cost;
 
     argument = one_argument(argument, arg);
 
@@ -724,6 +724,12 @@ void do_touch(CHAR_DATA *ch, char *argument)
     }
 
     heal = number_range(400, 600) * get_monk(ch, MONK_MANTRA);
+    cost = heal * 3 / 2;
+    if (ch->mana < cost)
+    {
+        stc("You don't have enough mana for Healing Touch.\n\r", ch);
+        return;
+    }
     victim->hit += heal;
     if (victim->hit > victim->max_hit) victim->hit = victim->max_hit;
 
@@ -739,7 +745,7 @@ void do_touch(CHAR_DATA *ch, char *argument)
 	act("$n lays their hands on $N and heal them", ch,NULL, victim, TO_NOTVICT);
     }
 
-    ch->mana -= heal * 1.5;
+    ch->mana -= cost;
     update_pos(victim);
 
     WAIT_STATE(ch, 18);

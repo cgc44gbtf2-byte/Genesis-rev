@@ -468,7 +468,7 @@ void do_mienaku( CHAR_DATA *ch, char *argument )
     was_in = ch->in_room;
 
     stc("You move to vanish from combat!\n\r", ch);
-    ch->pcdata->ninja[NINJA_KI] -= 10;
+    ch->pcdata->ninja[NINJA_KI] -= 20;
 
     for (attempt =  0; attempt < 6; attempt++)
     {

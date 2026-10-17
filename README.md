@@ -179,3 +179,10 @@ Inferno initializes its botch state for nonpositive spell power.
 
 This is a targeted correctness pass, not a full balance or ability audit.
 Explicitly disabled powers and ambiguous design choices remain unchanged.
+
+See [class catalog, costs, raw-stat caps and known gaps](deploy/CLASS_AUDIT.md)
+for the follow-up audit. The added Python catalog check detects duplicate
+command registrations, missing command implementations and unresolved literal
+skill references; run `python3 tests/test_catalog.py` alongside `make test`.
+Follow-up regressions cover Healing Touch affordability, Ninja Vanish Ki,
+Werewolf ward dispatch, Mage listing thresholds and class stat caps/costs.

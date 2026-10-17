@@ -62,6 +62,35 @@ long get_trust(CHAR_DATA *ch)
     return 0;
 }
 
+static void test_stat_limits_and_costs(void)
+{
+    const long classes[] = {CLASS_NONE, CLASS_VAMPIRE, CLASS_WEREWOLF,
+        CLASS_SORCERER, CLASS_DROW, CLASS_HIGHLANDER, CLASS_MAGE,
+        CLASS_DRAGON, CLASS_NINJA, CLASS_MONK, CLASS_ELEM};
+    const int limits[][5] = {
+        {8,8,8,8,8}, {10,9,11,9,8}, {11,9,10,8,9}, {9,9,8,11,10},
+        {9,11,8,10,9}, {11,9,10,8,9}, {8,9,9,11,10}, {11,8,10,9,9},
+        {10,11,9,9,8}, {9,10,9,8,11}, {9,8,9,10,11}
+    };
+    const int stats[] = {STAT_STR, STAT_DEX, STAT_CON, STAT_INT, STAT_WIS};
+    CHAR_DATA ch = {0};
+    for (unsigned i = 0; i < sizeof(classes)/sizeof(classes[0]); ++i)
+    {
+        ch.class = classes[i];
+        for (int j = 0; j < 5; ++j)
+        {
+            if (stat_max(&ch, stats[j]) != limits[i][j])
+                fprintf(stderr, "class %ld stat %d: expected %d, got %d\n",
+                        classes[i], stats[j], limits[i][j], stat_max(&ch, stats[j]));
+            assert(stat_max(&ch, stats[j]) == limits[i][j]);
+            ch.stats[stats[j]] = 5;
+            assert(stat_cost(&ch, stats[j]) == 250000);
+            ch.stats[stats[j]] = 6;
+            assert(stat_cost(&ch, stats[j]) == 720000);
+        }
+    }
+}
+
 void bug(const char *message, long value)
 {
     (void)message;
@@ -284,6 +313,7 @@ static void test_friction_curse(char *argument, long quint, bool safe)
 
 int main(void)
 {
+    test_stat_limits_and_costs();
     test_channels();
     test_geas();
     test_friction_curse("target 3", 3, FALSE);

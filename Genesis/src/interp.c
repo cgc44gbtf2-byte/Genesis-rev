@@ -505,7 +505,7 @@
    { "varmor",		do_vamparmor,   POS_DEAD,        LEV_AWA,  LOG_NORMAL 	},
    { "wwarmor",		do_wolfarmor,   POS_DEAD,        LEV_AWA,  LOG_NORMAL 	},
    { "wallgranite",	do_wallgranite,	POS_STANDING,	 LEV_AWA,  LOG_NORMAL	},
-   { "ward",		do_spiritward,	POS_STANDING,	 LEV_AWA,  LOG_NORMAL	},
+   { "spiritward",	do_spiritward,	POS_STANDING,	 LEV_AWA,  LOG_NORMAL	},
    { "weakness",	do_weakness,	POS_FIGHTING,	 LEV_AWA,  LOG_NORMAL	},
    { "web",		do_web,		POS_FIGHTING,	 LEV_AWA,  LOG_NORMAL	},
    { "whelp",		do_whelp,	POS_FIGHTING,	 LEV_AWA,  LOG_NORMAL 	},

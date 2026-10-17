@@ -10,8 +10,17 @@ static AREA_DATA area;
 static bool protected_room;
 static int safe_calls, die = 10;
 static long damage_total;
+static int spiritward_calls;
+static char messages[16384];
 
-void send_to_char(const char *text, CHAR_DATA *ch) { (void)text; (void)ch; }
+void send_to_char(const char *text, CHAR_DATA *ch)
+{
+    (void)ch;
+    assert(strlen(messages) + strlen(text) < sizeof(messages));
+    strcat(messages, text);
+}
+void do_spiritward(CHAR_DATA *ch, char *arg)
+{ assert(IS_WEREWOLF(ch)); (void)arg; ++spiritward_calls; }
 void act(const char *s, CHAR_DATA *ch, const void *a, const void *b, long t)
 { (void)s; (void)ch; (void)a; (void)b; (void)t; }
 char *one_argument(char *s, char *out)
@@ -107,6 +116,7 @@ static void reset(void)
     safe_calls = 0;
     damage_total = 0;
     die = 10;
+    messages[0] = '\0';
 }
 
 static void unchanged(long mana)
@@ -121,6 +131,17 @@ static void unchanged(long mana)
 
 int main(void)
 {
+    reset();
+    caster.class = CLASS_WEREWOLF;
+    do_paradox_ward(&caster, "");
+    assert(spiritward_calls == 1 && caster.mana == 100000);
+    reset();
+    for (int i = 0; i < 9; ++i) caster.spheres[i] = 3;
+    do_magepowers(&caster, "");
+    const char *third_rank[] = {"brittlebones", "frictioncurse", "betterbody",
+        "sculpture", "shield", "mageenchant", "stepsideways", "contingency"};
+    for (unsigned i = 0; i < sizeof(third_rank)/sizeof(third_rank[0]); ++i)
+        assert(strstr(messages, third_rank[i]));
     void (*spells[])(CHAR_DATA *, char *) = {
         do_brittle_bones, do_mutate_ephemera, do_alterweight,
         do_mage_heal, do_better_body, do_polymorph_other, do_electrical_chaos

@@ -1577,6 +1577,13 @@ void do_paradox_ward(CHAR_DATA *ch, char * argument)
     char arg[MAX_STRING_LENGTH], buf1[MAX_STRING_LENGTH], buf2[MAX_STRING_LENGTH];
     long power, quintessence;
 
+    /* The old duplicate command-table entry hid the Werewolf ward entirely. */
+    if (IS_WEREWOLF(ch))
+    {
+        do_spiritward(ch, argument);
+        return;
+    }
+
     one_argument( argument, arg);
 
     if (!IS_MAGE(ch))
@@ -3099,7 +3106,7 @@ stc("----------------------------------------------\n\r", ch);
     {
 	stc("Entropy: ", ch);
 	if (ch->spheres[MENT] >= 2) stc("beginnersluck", ch);
-	if (ch->spheres[MENT] >= 4) stc(", brittlebones", ch);
+if (ch->spheres[MENT] >= 3) stc(", brittlebones", ch);
 	if (ch->spheres[MENT] >= 5) stc(", mutateephemera", ch);
 	stc(".\n\r", ch);
     }
@@ -3109,7 +3116,7 @@ stc("----------------------------------------------\n\r", ch);
         stc("Forces: ", ch);
 	if (ch->spheres[MFOR] >= 1) stc("nightsight", ch);
         if (ch->spheres[MFOR] >= 2) stc(", electricalchaos", ch);
-        if (ch->spheres[MFOR] >= 4) stc(", frictioncurse", ch);
+        if (ch->spheres[MFOR] >= 3) stc(", frictioncurse", ch);
         if (ch->spheres[MFOR] >= 5) stc(", inferno", ch);
         stc(".\n\r", ch);
     }
@@ -3119,7 +3126,7 @@ stc("----------------------------------------------\n\r", ch);
         stc("Life: ", ch);
 	if (ch->spheres[MLIF] >= 1) stc("readaura", ch);
         if (ch->spheres[MLIF] >= 2) stc(", mageheal", ch);
-        if (ch->spheres[MLIF] >= 4) stc(", betterbody", ch);
+        if (ch->spheres[MLIF] >= 3) stc(", betterbody", ch);
         if (ch->spheres[MLIF] >= 5) stc(", polymorphother", ch);
         stc(".\n\r", ch);
     }
@@ -3129,7 +3136,7 @@ stc("----------------------------------------------\n\r", ch);
         stc("Matter: ", ch);
 	if (ch->spheres[MMAT] >= 1) stc("analyze", ch);
         if (ch->spheres[MMAT] >= 2) stc(", shatterwall", ch);
-        if (ch->spheres[MMAT] >= 4) stc(", sculpture", ch);
+        if (ch->spheres[MMAT] >= 3) stc(", sculpture", ch);
         if (ch->spheres[MMAT] >= 5) stc(", alterweight", ch);
         stc(".\n\r", ch);
     }
@@ -3139,7 +3146,7 @@ stc("----------------------------------------------\n\r", ch);
         stc("Mind: ", ch);
         if (ch->spheres[MMIN] >= 1) stc("heighten", ch);
         if (ch->spheres[MMIN] >= 2) stc(", scry", ch);
-        if (ch->spheres[MMIN] >= 4) stc(", shield", ch);
+        if (ch->spheres[MMIN] >= 3) stc(", shield", ch);
         if (ch->spheres[MMIN] >= 5) stc(", mageinvis", ch);
         stc(".\n\r", ch);
     }
@@ -3149,7 +3156,7 @@ stc("----------------------------------------------\n\r", ch);
         stc("Prime: ", ch);
 	if (ch->spheres[MPRI] >= 1) stc("heartsblood", ch);
         if (ch->spheres[MPRI] >= 2) stc(", holysmote", ch);
-        if (ch->spheres[MPRI] >= 4) stc(", mageenchant", ch);
+        if (ch->spheres[MPRI] >= 3) stc(", mageenchant", ch);
         if (ch->spheres[MPRI] >= 5) stc(", ward", ch);
         stc(".\n\r", ch);
     }
@@ -3159,7 +3166,7 @@ stc("----------------------------------------------\n\r", ch);
         stc("Spirit: ", ch);
 	if (ch->spheres[MSPI] >= 1) stc("spiritsense", ch);
         if (ch->spheres[MSPI] >= 2) stc(", spiritcaress", ch);
-        if (ch->spheres[MSPI] >= 4) stc(", stepsideways", ch);
+        if (ch->spheres[MSPI] >= 3) stc(", stepsideways", ch);
         if (ch->spheres[MSPI] >= 5) stc(", breakdreamshell", ch);
         stc(".\n\r", ch);
     }
@@ -3167,7 +3174,7 @@ stc("----------------------------------------------\n\r", ch);
     if (ch->spheres[MTIM] > 0)
     {
         stc("Time: ", ch);
-        if (ch->spheres[MTIM] >= 4) stc("contingency", ch);
+        if (ch->spheres[MTIM] >= 3) stc("contingency", ch);
         if (ch->spheres[MTIM] >= 5) stc(", doublecast", ch);
         stc(".\n\r", ch);
     }
