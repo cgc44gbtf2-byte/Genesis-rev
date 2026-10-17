@@ -3212,12 +3212,15 @@ long number_argument(char *argument, char *arg)
 /*
  * Pick off one argument from a string and return the rest.
  * Understands quotes.
+ * arg_first must hold MAX_INPUT_LENGTH bytes.  Consume oversized tokens
+ * completely even when their stored representation has been truncated.
  */
    char *one_argument( char *argument, char *arg_first )
    {
       char cEnd;
+      size_t length = 0;
    
-      while ( isspace(*argument) )
+      while ( isspace((unsigned char)*argument) )
          argument++;
    
       cEnd = ' ';
@@ -3231,13 +3234,13 @@ long number_argument(char *argument, char *arg)
             argument++;
             break;
          }
-         *arg_first = LOWER(*argument);
-         arg_first++;
+         if ( length < MAX_INPUT_LENGTH - 1 )
+            arg_first[length++] = LOWER(*argument);
          argument++;
       }
-      *arg_first = '\0';
+      arg_first[length] = '\0';
    
-      while ( isspace(*argument) )
+      while ( isspace((unsigned char)*argument) )
          argument++;
    
       return argument;

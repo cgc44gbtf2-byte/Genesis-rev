@@ -3,28 +3,35 @@
  * From mudfix:
  * cc -std=gnu17 -DMERC -Dunix -ffunction-sections -fdata-sections \
  *   tests/test_comm.c -Wl,--gc-sections \
- *   /usr/lib/x86_64-linux-gnu/libcrypt.so.1 -o /tmp/test_comm
+ *   -lcrypt -o /tmp/test_comm
  * /tmp/test_comm
  */
 #include <assert.h>
 #include <unistd.h>
-extern char *crypt(const char *key, const char *salt);
+#include <crypt.h>
 
 static ssize_t comm_test_read(int fd, void *buf, size_t count);
 static ssize_t comm_test_write(int fd, const void *buf, size_t count);
 static char *comm_test_crypt(const char *key, const char *salt);
+static char *comm_test_gensalt(const char *prefix, unsigned long cost,
+                              const char *entropy, int entropy_size,
+                              char *output, int output_size);
 
 #define main genesis_server_main
 #define read comm_test_read
 #define write comm_test_write
 #define crypt comm_test_crypt
+#define crypt_gensalt_rn comm_test_gensalt
 #include "../Genesis/src/comm.c"
 #undef main
 #undef read
 #undef write
 #undef crypt
+#undef crypt_gensalt_rn
 
 static int read_mode, read_calls, write_mode, write_calls, fail_crypt;
+static int fail_gensalt, saved_passwords;
+static char saved_password[CRYPT_OUTPUT_SIZE];
 static int reported_bugs;
 char log_buf[MAX_STRING_LENGTH];
 
@@ -74,7 +81,28 @@ static char *comm_test_crypt(const char *key, const char *salt)
         return NULL;
     if (fail_crypt == 2)
         return "*0";
+    if (fail_crypt == 3 && !strncmp(salt, "$y$", 3))
+        return "xy12345678901"; /* A provider must never silently downgrade. */
+    if (fail_crypt == 4 && !strncmp(salt, "$y$", 3))
+        return "$y$invalid~hash";
     return crypt(key, salt);
+}
+
+static char *comm_test_gensalt(const char *prefix, unsigned long cost,
+                              const char *entropy, int entropy_size,
+                              char *output, int output_size)
+{
+    assert(!strcmp(prefix, "$y$"));
+    assert(cost == 5);
+    assert(entropy == NULL && entropy_size == 0); /* OS randomness, not game RNG. */
+    if (fail_gensalt == 1)
+        return NULL;
+    if (fail_gensalt == 2)
+    {
+        strcpy(output, "xy");
+        return output;
+    }
+    return crypt_gensalt_rn(prefix, cost, entropy, entropy_size, output, output_size);
 }
 
 void *alloc_mem(long size)
@@ -120,9 +148,13 @@ void free_string(char *text)
 
 void do_autosave(CHAR_DATA *ch, char *argument)
 {
-    (void)ch;
     (void)argument;
-    assert(!"unexpected password change");
+    assert(ch->desc != NULL && ch->desc->connected == CON_PLAYING);
+    assert(IS_EXTRA(ch, EXTRA_NEWPASS));
+    assert(!strncmp(ch->pcdata->pwd, "$y$", 3));
+    assert(strlen(ch->pcdata->pwd) < sizeof(saved_password));
+    strcpy(saved_password, ch->pcdata->pwd);
+    ++saved_passwords;
 }
 
 long get_trust(CHAR_DATA *ch)
@@ -238,6 +270,10 @@ static void test_passwords(void)
     fail_crypt = 2;
     assert(!password_matches("synthetic-test-password", stored, FALSE));
     assert(!password_matches("*0", "*0", TRUE));
+    assert(!password_matches("$y$invalid", "$y$invalid", TRUE));
+    assert(!password_matches("_invalid", "_invalid", TRUE));
+    assert(!password_matches("!locked", "!locked", TRUE));
+    fail_crypt = 0;
 
     memset(&ch, 0, sizeof(ch));
     memset(oversized, 'x', sizeof(oversized) - 1);
@@ -245,6 +281,177 @@ static void test_passwords(void)
     do_password(&ch, oversized);
     memcpy(oversized, "old ", 4);
     do_password(&ch, oversized);
+}
+
+static void test_modern_passwords(void)
+{
+    CHAR_DATA ch = {0};
+    PC_DATA pc = {0};
+    DESCRIPTOR_DATA d = {0};
+    char first[CRYPT_OUTPUT_SIZE];
+    char old[CRYPT_OUTPUT_SIZE];
+    int i;
+
+    ch.pcdata = &pc;
+    ch.desc = &d;
+    d.character = &ch;
+    d.connected = CON_GET_NEW_PASSWORD;
+    pc.pwd = str_dup("");
+
+    /* This is the shared new-character/change-password creation path. */
+    assert(password_set(&ch, "modern-test-password"));
+    assert(!strncmp(pc.pwd, "$y$", 3));
+    assert(IS_EXTRA(&ch, EXTRA_NEWPASS));
+    assert(password_matches("modern-test-password", pc.pwd, FALSE));
+    assert(password_matches("modern-test-password", pc.pwd, TRUE));
+    assert(!password_matches("modern-test-password-wrong", pc.pwd, FALSE));
+    assert(!password_matches(pc.pwd, pc.pwd, TRUE));
+    strcpy(first, pc.pwd);
+    assert(password_set(&ch, "modern-test-password"));
+    assert(strcmp(first, pc.pwd)); /* Same input must get a fresh random salt. */
+    assert(password_matches("modern-test-password", pc.pwd, FALSE));
+    assert(saved_passwords == 0);
+
+    /* New yescrypt hashes distinguish characters after DES's eight-byte limit. */
+    assert(password_set(&ch, "12345678suffix-one"));
+    assert(!password_matches("12345678suffix-two", pc.pwd, FALSE));
+    assert(password_set(&ch, "case ~ ' \" sensitive"));
+    assert(password_matches("case ~ ' \" sensitive", pc.pwd, FALSE));
+    strcpy(old, pc.pwd);
+    for (i = 1; i <= 4; ++i)
+    {
+        fail_crypt = i;
+        assert(!password_set(&ch, "replacement-test"));
+        assert(!strcmp(pc.pwd, old));
+    }
+    fail_crypt = 0;
+    for (i = 1; i <= 2; ++i)
+    {
+        fail_gensalt = i;
+        assert(!password_set(&ch, "replacement-test"));
+        assert(!strcmp(pc.pwd, old));
+    }
+    fail_gensalt = 0;
+    assert(!password_set(&ch, NULL));
+    assert(!password_set(&ch, ""));
+    free_string(pc.pwd);
+}
+
+static void test_password_migration(void)
+{
+    CHAR_DATA ch = {0};
+    PC_DATA pc = {0};
+    DESCRIPTOR_DATA d = {0};
+    char legacy[CRYPT_OUTPUT_SIZE];
+    char migrated[CRYPT_OUTPUT_SIZE];
+    int i, flag;
+
+    ch.pcdata = &pc;
+    ch.desc = &d;
+    d.character = &ch;
+    strcpy(legacy, crypt("legacy-test-password", "xy"));
+
+    /* DES migrates with or without EXTRA_NEWPASS. Do not hash the stored hash. */
+    for (flag = 0; flag <= 1; ++flag)
+    {
+        ch.extra = flag ? EXTRA_NEWPASS : 0;
+        pc.pwd = str_dup(legacy);
+        d.connected = CON_GET_OLD_PASSWORD;
+        assert(!password_upgrade(&d, legacy)); /* Pass-the-hash remains rejected. */
+        assert(!password_upgrade(&d, "wrong"));
+        assert(!strcmp(pc.pwd, legacy));
+        assert(!d.password_save_pending);
+        assert(password_upgrade(&d, "legacy-test-password"));
+        assert(strncmp(pc.pwd, "$y$", 3) == 0);
+        assert(password_matches("legacy-test-password", pc.pwd, FALSE));
+        assert(d.password_save_pending);
+        password_save_if_ready(&d);
+        assert(saved_passwords == flag); /* Never save the short-login shell. */
+        d.connected = CON_READ_MOTD;
+        password_save_if_ready(&d);
+        assert(saved_passwords == flag);
+        d.connected = CON_PLAYING;
+        password_save_if_ready(&d);
+        assert(saved_passwords == flag + 1);
+        assert(!d.password_save_pending);
+        assert(!strcmp(saved_password, pc.pwd));
+        strcpy(migrated, pc.pwd);
+        assert(password_upgrade(&d, "legacy-test-password"));
+        assert(!d.password_save_pending); /* Modern hashes are not re-salted on login. */
+        assert(!strcmp(migrated, pc.pwd));
+        free_string(pc.pwd);
+    }
+
+    /* Failure keeps the original hash and migration flag intact; no save. */
+    ch.extra = 0;
+    pc.pwd = str_dup(legacy);
+    for (i = 1; i <= 4; ++i)
+    {
+        fail_crypt = i;
+        assert(!password_upgrade(&d, "legacy-test-password"));
+        assert(!strcmp(pc.pwd, legacy));
+        assert(!IS_EXTRA(&ch, EXTRA_NEWPASS));
+        assert(!d.password_save_pending);
+    }
+    fail_crypt = 0;
+    fail_gensalt = 1;
+    assert(!password_upgrade(&d, "legacy-test-password"));
+    assert(!strcmp(pc.pwd, legacy));
+    assert(!d.password_save_pending);
+    fail_gensalt = 0;
+    free_string(pc.pwd);
+
+    /* Preserve the explicit plaintext legacy gate, including short passwords. */
+    pc.pwd = str_dup("x");
+    ch.extra = EXTRA_NEWPASS;
+    assert(!password_upgrade(&d, "x"));
+    ch.extra = 0;
+    assert(password_upgrade(&d, "x"));
+    assert(password_matches("x", pc.pwd, FALSE));
+    password_save_if_ready(&d);
+    assert(saved_passwords == 3);
+    free_string(pc.pwd);
+}
+
+static void test_password_change(void)
+{
+    CHAR_DATA ch = {0};
+    PC_DATA pc = {0};
+    DESCRIPTOR_DATA d = {0};
+    char old[CRYPT_OUTPUT_SIZE];
+    int before = saved_passwords;
+
+    ch.pcdata = &pc;
+    ch.desc = &d;
+    d.character = &ch;
+    d.connected = CON_PLAYING;
+    d.outsize = 2000;
+    d.outbuf = alloc_mem(d.outsize);
+    d.fcommand = TRUE;
+    pc.pwd = str_dup(crypt("old-test", "xy"));
+    strcpy(old, pc.pwd);
+    fail_gensalt = 1;
+    do_password(&ch, "old-test new-test-password");
+    assert(!strcmp(pc.pwd, old));
+    assert(!IS_EXTRA(&ch, EXTRA_NEWPASS));
+    assert(saved_passwords == before);
+    assert(strstr(d.outbuf, "encryption failed"));
+    assert(!strstr(d.outbuf, "old-test") && !strstr(d.outbuf, "new-test-password"));
+    fail_gensalt = 0;
+    do_password(&ch, "old-test new-test-password");
+    assert(password_matches("new-test-password", pc.pwd, FALSE));
+    assert(!password_matches("old-test", pc.pwd, FALSE));
+    strcpy(old, pc.pwd);
+    do_password(&ch, "new-test-password another-test-password");
+    assert(strcmp(pc.pwd, old));
+    assert(password_matches("another-test-password", pc.pwd, FALSE));
+    assert(!password_matches("new-test-password", pc.pwd, FALSE));
+    assert(saved_passwords == before + 2);
+    assert(!strcmp(saved_password, pc.pwd));
+    do_password(&ch, "wrong-test another-test-password");
+    assert(saved_passwords == before + 2);
+    free_string(pc.pwd);
+    free_mem(d.outbuf, d.outsize);
 }
 
 static void test_prompt_drain(void)
@@ -298,6 +505,9 @@ int main(void)
     test_input();
     test_output();
     test_passwords();
+    test_modern_passwords();
+    test_password_migration();
+    test_password_change();
     test_prompt_drain();
     puts("comm regressions passed");
     return 0;

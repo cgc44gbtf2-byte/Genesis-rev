@@ -2326,13 +2326,13 @@ switch (c)
  */
 void fread_to_eol( FILE *fp )
 {
-    char c;
+    int c;
 
     do
     {
 	c = getc( fp );
     }
-    while ( c != '\n' && c != '\r' );
+    while ( c != EOF && c != '\n' && c != '\r' );
 
     do
     {
@@ -2340,7 +2340,8 @@ void fread_to_eol( FILE *fp )
     }
     while ( c == '\n' || c == '\r' );
 
-    ungetc( c, fp );
+    if ( c != EOF )
+        ungetc( c, fp );
     return;
 }
 
@@ -2902,9 +2903,9 @@ bool str_suffix( const char *astr, const char *bstr )
 char *capitalize( const char *str )
 {
     static char strcap[MAX_STRING_LENGTH];
-    long i;
+    size_t i;
 
-    for ( i = 0; str[i] != '\0'; i++ )
+    for ( i = 0; i < sizeof(strcap) - 1 && str[i] != '\0'; i++ )
 	strcap[i] = LOWER(str[i]);
     strcap[i] = '\0';
     strcap[0] = UPPER(strcap[0]);
@@ -2918,9 +2919,9 @@ char *capitalize( const char *str )
 char *upper_cap( const char *str )
 {
     static char strcap[MAX_STRING_LENGTH];
-    long i;
+    size_t i;
 
-    for ( i = 0; str[i] != '\0'; i++ )
+    for ( i = 0; i < sizeof(strcap) - 1 && str[i] != '\0'; i++ )
 	strcap[i] = UPPER(str[i]);
     strcap[i] = '\0';
     return strcap;
@@ -2962,6 +2963,61 @@ void append_file( CHAR_DATA *ch, char *file, char *str )
 /*
  * Reports a bug.
  */
+/* bug() has one long argument, not a printf argument list.  In particular,
+ * preformatted messages can contain player-supplied percent signs.  Only
+ * interpret the conversions actually supported by this API; leave others
+ * literal instead of letting printf read missing arguments or write via %n.
+ */
+static void format_bug( char *out, size_t size, const char *str, long param )
+{
+    size_t used = 0;
+    bool converted = FALSE;
+
+    while ( *str && used + 1 < size )
+    {
+        char number[64];
+        size_t consumed = 0;
+
+        if ( str[0] == '%' && str[1] == '%' )
+        {
+            out[used++] = '%';
+            str += 2;
+            continue;
+        }
+        if ( !converted && str[0] == '%' )
+        {
+            if ( str[1] == 'l' && (str[2] == 'i' || str[2] == 'd') )
+            {
+                snprintf( number, sizeof(number), "%ld", param );
+                consumed = 3;
+            }
+            else if ( str[1] == 'i' || str[1] == 'd' )
+            {
+                snprintf( number, sizeof(number), "%d", (int)param );
+                consumed = 2;
+            }
+            else if ( str[1] == 'c' )
+            {
+                snprintf( number, sizeof(number), "%c", (int)param );
+                consumed = 2;
+            }
+        }
+        if ( consumed )
+        {
+            size_t len = strlen( number );
+            if ( len > size - used - 1 )
+                len = size - used - 1;
+            memcpy( out + used, number, len );
+            used += len;
+            str += consumed;
+            converted = TRUE;
+        }
+        else
+            out[used++] = *str++;
+    }
+    out[used] = '\0';
+}
+
 void bug( const char *str, long param )
 {
     char buf[MAX_STRING_LENGTH];
@@ -2990,7 +3046,7 @@ void bug( const char *str, long param )
 	    fseek( fpArea, iChar, 0 );
 	}
 
-	sprintf( buf, "[*****] FILE: %s LINE: %li", strArea, iLine );
+	snprintf( buf, sizeof(buf), "[*****] FILE: %s LINE: %li", strArea, iLine );
 	log_string( buf );
 
 	if ( ( fp = fopen( "shutdown.txt", "a" ) ) != NULL )
@@ -3002,11 +3058,14 @@ void bug( const char *str, long param )
     }
 
     strcpy( buf, "[*****] BUG: " );
-    sprintf( buf + strlen(buf), str, param );
+    format_bug( buf + strlen(buf), sizeof(buf) - strlen(buf), str, param );
     log_string( buf );
 
-    fflush( fpReserve );
-    fclose( fpReserve );
+    if ( fpReserve != NULL )
+    {
+        fflush( fpReserve );
+        fclose( fpReserve );
+    }
     fpReserve = fopen( NULL_FILE, "r" );
 
     return;

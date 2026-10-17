@@ -26,6 +26,18 @@ redistributing the game.
 Requires a C17-capable GCC-compatible compiler, GNU Make, and libcrypt
 development files (for example `build-essential libcrypt-dev` on Ubuntu).
 
+Debian 12/13 and Ubuntu 22.04/24.04 are covered by the CI container matrix.
+On those systems:
+
+```sh
+sudo apt-get update
+sudo apt-get install -y build-essential libcrypt-dev git ca-certificates
+```
+
+Use GCC for the regression suite (one isolated test uses a GCC sanitizer
+parameter to discard an unrelated command table). No administrator/root
+privileges are needed to build or run the MUD on an unprivileged port.
+
 ```sh
 make -j2
 make test
@@ -77,16 +89,41 @@ on all interfaces by default; restrict access with the host firewall.
 
 ## Verification and remaining scope
 
-Three isolated regression suites cover network/authentication, data readers,
+Four isolated regression suites cover network/authentication, data readers,
+editor/command buffer boundaries,
 and gameplay fixes. Normal and ASan/UBSan suites passed locally. The complete
 server compiled and booted with original area/help data in an isolated
 runtime, and returned a TCP greeting. No live player data was loaded.
 
 This is not a claim that the entire legacy game is secure or bug-free.
 Compiler warnings still identify legacy formatting/size risks and unused
-variables. Password creation still uses legacy DES crypt; a modern,
-versioned password migration is needed before public operation. Other
+variables. Other
 gameplay paths, persistence under disk failure, privileged commands and
 long-running multiplayer behavior require further work. Some unflagged
 legacy plaintext passwords resembling encoded hashes are deliberately
 rejected; affected accounts require an operator-assisted reset.
+
+## Password storage and second hardening pass
+
+New and changed passwords use libxcrypt yescrypt with OS-generated random
+salts (cost 5, approximately 16 MiB). Missing entropy, unsupported hashing,
+or hashing failures reject the operation rather than falling back to weak
+hashes. `NOCRYPT` builds are deliberately rejected.
+
+Existing DES and eligible legacy plaintext credentials still verify and
+are upgraded after successful authentication. The fully loaded character
+is saved through the existing autosave path once playing, including
+reconnect/takeover paths; the short login record is never saved over the
+full inventory. Modern hashes are not regenerated on every login.
+
+Back up player files before upgrading. After migration, use only this
+yescrypt-capable build; historical binaries are not a supported rollback.
+Legacy DES verifies only its historical password prefix; users should
+change their password after migration. Existing save eligibility and disk
+error handling remain unchanged: migration does not make persistence atomic
+or guarantee durability when the filesystem fails.
+
+The second pass also bounds capitalization and command tokens, repairs
+editor empty-string/overflow cases, prevents shared-string mutation and
+replacement leaks, terminates end-of-line reads at EOF, and replaces the
+bug logger's unsafe arbitrary printf interpretation with bounded formatting.

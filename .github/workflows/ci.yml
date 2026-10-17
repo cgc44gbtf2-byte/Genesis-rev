@@ -7,10 +7,19 @@ permissions:
 jobs:
   regression:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - debian:12
+          - debian:13
+          - ubuntu:22.04
+          - ubuntu:24.04
+    container: ${{ matrix.image }}
     steps:
+      - name: Install distro toolchain
+        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates git build-essential libcrypt-dev
       - uses: actions/checkout@v4
-      - name: Install compiler and crypt library
-        run: sudo apt-get update && sudo apt-get install -y build-essential libcrypt-dev
       - name: Build
         run: make -j2
       - name: Regression tests

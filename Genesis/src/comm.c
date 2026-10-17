@@ -55,6 +55,7 @@
 #include <time.h>
 #include <stdarg.h>
 #include <malloc.h>
+#include <crypt.h>
 
 #include "merc.h"
 
@@ -1846,6 +1847,78 @@ bool password_matches( const char *argument, const char *stored,
     return allow_plaintext && !looks_encoded && !strcmp(argument, stored);
 }
 
+/*
+ * libxcrypt obtains salt entropy from the OS when rbytes is NULL. Cost 5 is
+ * yescrypt's supported default (about 16 MiB per hash). Failure is fatal to
+ * this operation: never retry with DES, a fixed salt, or plaintext.
+ * crypt() returns static storage, so copy it before another crypt() call.
+ */
+static bool password_set( CHAR_DATA *ch, const char *argument )
+{
+    char setting[CRYPT_GENSALT_OUTPUT_SIZE];
+    char *encoded;
+    char *replacement;
+
+    if ( argument == NULL || argument[0] == '\0' ||
+         crypt_gensalt_rn("$y$", 5, NULL, 0, setting, sizeof(setting)) == NULL ||
+         strncmp(setting, "$y$", 3) )
+        return FALSE;
+
+    encoded = crypt(argument, setting);
+    if ( encoded == NULL || strncmp(encoded, "$y$", 3) ||
+         strspn(encoded, "$./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
+             != strlen(encoded) ||
+         strlen(encoded) <= strlen(setting) ||
+         strncmp(encoded, setting, strlen(setting)) ||
+         encoded[strlen(setting)] != '$' )
+        return FALSE;
+
+    replacement = str_dup(encoded);
+    if ( replacement == NULL )
+        return FALSE;
+    free_string(ch->pcdata->pwd);
+    ch->pcdata->pwd = replacement;
+    SET_BIT(ch->extra, EXTRA_NEWPASS);
+    return TRUE;
+}
+
+/*
+ * Only call on the final character, after reconnect/takeover or full load.
+ * Saving a load_char_short() shell would discard inventory. Keep the pending
+ * save on the descriptor until CON_PLAYING, as save_char_obj requires.
+ */
+static bool password_upgrade( DESCRIPTOR_DATA *d, const char *argument )
+{
+    CHAR_DATA *ch = d->character;
+
+    if ( ch == NULL || ch->pcdata == NULL ||
+         !password_matches(argument, ch->pcdata->pwd,
+                           !IS_EXTRA(ch, EXTRA_NEWPASS)) )
+        return FALSE;
+
+    if ( strncmp(ch->pcdata->pwd, "$y$", 3) )
+    {
+        if ( !password_set(ch, argument) )
+            return FALSE;
+        d->password_save_pending = TRUE;
+    }
+    else if ( !IS_EXTRA(ch, EXTRA_NEWPASS) )
+    {
+        SET_BIT(ch->extra, EXTRA_NEWPASS);
+        d->password_save_pending = TRUE;
+    }
+    return TRUE;
+}
+
+static void password_save_if_ready( DESCRIPTOR_DATA *d )
+{
+    if ( d->password_save_pending && d->connected == CON_PLAYING )
+    {
+        do_autosave(d->character, "");
+        d->password_save_pending = FALSE;
+    }
+}
+
 
 /*
  * Deal with sockets that haven't logged in yet.
@@ -1855,8 +1928,6 @@ void nanny( DESCRIPTOR_DATA *d, char *argument )
     char buf[MAX_STRING_LENGTH];
     char kav[MAX_STRING_LENGTH];
     CHAR_DATA *ch;
-    char *pwdnew;
-    char *p;
     char *strtime;
     char *lasttime;
     bool fOld; 
@@ -2008,11 +2079,18 @@ if ( ch == NULL || ch->pcdata == NULL ||
 
 	write_to_buffer( d, echo_on_str, 0 );
 
-	if ( check_reconnect( d, ch->name, TRUE ) )
-	    return;
-
-	if ( check_playing( d, ch->name ) )
-	    return;
+	if ( check_reconnect( d, ch->name, TRUE ) ||
+	     check_playing( d, ch->name ) )
+        {
+            if ( !password_upgrade(d, argument) )
+            {
+                write_to_buffer(d, "Password upgrade failed. Please try again later.\n\r", 0);
+                close_socket(d);
+                return;
+            }
+            password_save_if_ready(d);
+            return;
+        }
 /*
 	if ( check_kickoff( d, ch->name, TRUE ) )
 	    return;
@@ -2027,9 +2105,12 @@ if ( ch == NULL || ch->pcdata == NULL ||
 	    ch   = d->character;
 	}
 
-	if ( !IS_EXTRA(ch,EXTRA_NEWPASS) && strlen(argument) > 1) {
-		sprintf(kav,"%s %s",argument,argument);
-		do_password(ch,kav);}
+        if ( !password_upgrade(d, argument) )
+        {
+            write_to_buffer(d, "Password upgrade failed. Please try again later.\n\r", 0);
+            close_socket(d);
+            return;
+        }
 
 	if (ch->lasthost != NULL) free_string(ch->lasthost);
 	if (ch->desc != NULL && ch->desc->host != NULL)
@@ -2109,27 +2190,11 @@ if ( ch == NULL || ch->pcdata == NULL ||
 	    return;
 	}
 
-	pwdnew = crypt( argument, ch->name );
-
-if ( pwdnew == NULL || pwdnew[0] == '*' )
-{
-    write_to_buffer( d, "Password encryption failed. Try again.\n\rPassword: ", 0 );
-    return;
-}
-
-	for ( p = pwdnew; *p != '\0'; p++ )
-	{
-	    if ( *p == '~' )
-	    {
-		write_to_buffer( d,
-		    "New password not acceptable, try again.\n\rPassword: ",
-		    0 );
-		return;
-	    }
-	}
-
-	free_string( ch->pcdata->pwd );
-	ch->pcdata->pwd	= str_dup( pwdnew );
+        if ( !password_set(ch, argument) )
+        {
+            write_to_buffer(d, "Password encryption failed. Try again.\n\rPassword: ", 0);
+            return;
+        }
 
 	write_to_buffer( d, "Please retype password: ", 0 );
 	d->connected = CON_CONFIRM_NEW_PASSWORD;
@@ -2255,6 +2320,7 @@ if ( !password_matches( argument, ch->pcdata->pwd, FALSE ) )
 	do_board(ch, ""); /* Show board status */
 
 	update_style(ch);
+password_save_if_ready(d);
 	if (!IS_IMM(ch))
 	{
 	    sprintf(buf, "#r%s#n #ghas entered the #7G #0E #7N #0E #7S #0I #7S#n.", ch->name);
@@ -2393,6 +2459,10 @@ bool check_reconnect( DESCRIPTOR_DATA *d, char *name, bool fConn )
 	    {
 		free_string( d->character->pcdata->pwd );
 		d->character->pcdata->pwd = str_dup( ch->pcdata->pwd );
+if ( IS_EXTRA(ch, EXTRA_NEWPASS) )
+    SET_BIT(d->character->extra, EXTRA_NEWPASS);
+else
+    REMOVE_BIT(d->character->extra, EXTRA_NEWPASS);
 	    }
 	    else
 	    {
@@ -2481,6 +2551,7 @@ bool check_playing( DESCRIPTOR_DATA *d, char *name )
 	    }
 	    send_to_char("This body has been taken over!\n\r",dold->character);
 	    d->connected = dold->connected;
+    d->password_save_pending = d->password_save_pending || dold->password_save_pending;
 	    d->character = dold->character;
 	    d->character->desc = d;
 	    send_to_char( "You take over your body, which was already in use.\n\r", d->character );
@@ -2847,8 +2918,6 @@ void do_password( CHAR_DATA *ch, char *argument )
     char arg1[MAX_INPUT_LENGTH];
     char arg2[MAX_INPUT_LENGTH];
     char *pArg;
-    char *pwdnew;
-    char *p;
     char cEnd;
 
     if ( IS_NPC(ch) )
@@ -2928,28 +2997,11 @@ if ( pArg - arg2 >= sizeof(arg2) - 1 )
 	return;
     }
 
-    /*
-     * No tilde allowed because of player file format.
-     */
-    pwdnew = crypt( arg2, ch->name );
-    if ( pwdnew == NULL || pwdnew[0] == '*' )
+    if ( !password_set(ch, arg2) )
     {
         send_to_char( "Password encryption failed. Try again.\n\r", ch );
         return;
     }
-    for ( p = pwdnew; *p != '\0'; p++ )
-    {
-	if ( *p == '~' )
-	{
-	    send_to_char(
-		"New password not acceptable, try again.\n\r", ch );
-	    return;
-	}
-    }
-
-    free_string( ch->pcdata->pwd );
-    ch->pcdata->pwd = str_dup( pwdnew );
-    if (!IS_EXTRA(ch,EXTRA_NEWPASS)) SET_BIT(ch->extra,EXTRA_NEWPASS);
     do_autosave(ch,"");
     if (ch->desc != NULL && ch->desc->connected == CON_PLAYING )
 	send_to_char( "Ok.\n\r", ch );

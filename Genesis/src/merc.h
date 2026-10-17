@@ -248,6 +248,7 @@ struct	descriptor_data
     long		descriptor;
     long		connected;
     bool		fcommand;
+    bool                password_save_pending;
     char		inbuf		[4 * MAX_INPUT_LENGTH];
     char		incomm		[MAX_INPUT_LENGTH];
     char		inlast		[MAX_INPUT_LENGTH];
@@ -2962,14 +2963,9 @@ char *	crypt		args( ( const char *key, const char *salt ) );
 
 
 
-/*
- * The crypt(3) function is not available on some operating systems.
- * In particular, the U.S. Government prohibits its export from the
- *   United States to foreign countries.
- * Turn on NOCRYPT to keep passwords in plain text.
- */
+/* Password storage requires libxcrypt; never build a plaintext fallback. */
 #if	defined(NOCRYPT)
-#define crypt(s1, s2)	(s1)
+#error "NOCRYPT is unsupported: install libxcrypt with yescrypt support."
 #endif
 
 

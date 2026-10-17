@@ -70,7 +70,7 @@ void string_append( CHAR_DATA *ch, char **pString )
     }
     send_to_char( *pString, ch );
     
-    if ( *(*pString + strlen( *pString ) - 1) != '\r' )
+    if ( **pString == '\0' || (*pString)[strlen( *pString ) - 1] != '\r' )
     send_to_char( "\n\r", ch );
 
     ch->desc->pString = pString;
@@ -83,20 +83,30 @@ void string_append( CHAR_DATA *ch, char **pString )
 char * string_replace( char * orig, char * old, char * new )
 {
     char xbuf[MAX_STRING_LENGTH];
-    long i;
+    char *match = strstr( orig, old );
+    char *result;
+    size_t prefix, replacement, suffix;
 
-    xbuf[0] = '\0';
-    strcpy( xbuf, orig );
-    if ( strstr( orig, old ) != NULL )
+    if ( match == NULL || *old == '\0' )
+        return orig;
+
+    prefix = (size_t)(match - orig);
+    replacement = strlen( new );
+    suffix = strlen( match + strlen(old) );
+    if ( prefix >= sizeof(xbuf)
+      || replacement >= sizeof(xbuf) - prefix
+      || suffix >= sizeof(xbuf) - prefix - replacement )
     {
-        i = strlen( orig ) - strlen( strstr( orig, old ) );
-        xbuf[i] = '\0';
-        strcat( xbuf, new );
-        strcat( xbuf, &orig[i+strlen( old )] );
-        free_string( orig );
+        bug( "String_replace: result too long.", 0 );
+        return orig;
     }
 
-    return str_dup( xbuf );
+    memcpy( xbuf, orig, prefix );
+    memcpy( xbuf + prefix, new, replacement );
+    memcpy( xbuf + prefix + replacement, match + strlen(old), suffix + 1 );
+    result = str_dup( xbuf );
+    free_string( orig );
+    return result;
 }
 
 
@@ -137,16 +147,24 @@ void string_add( CHAR_DATA *ch, char *argument )
                 return;
             }
 
-            *ch->desc->pString = string_replace( *ch->desc->pString, arg2, arg3 );
-            sprintf( buf, "'%s' replaced with '%s'.\n\r", arg2, arg3 );
+            char *original = *ch->desc->pString;
+            *ch->desc->pString = string_replace( original, arg2, arg3 );
+            if ( *ch->desc->pString == original )
+            {
+                send_to_char( "Replacement not applied: no match or result too long.\n\r", ch );
+                return;
+            }
+            snprintf( buf, sizeof(buf), "'%s' replaced with '%s'.\n\r", arg2, arg3 );
             send_to_char( buf, ch );
             return;
         }
 
         if ( !str_cmp( arg1, ".f" ) )
         {
+            char *original = *ch->desc->pString;
             *ch->desc->pString = format_string( *ch->desc->pString );
-            send_to_char( "String formatted.\n\r", ch );
+            send_to_char( *ch->desc->pString == original
+                ? "String too long to format.\n\r" : "String formatted.\n\r", ch );
             return;
         }
         
@@ -176,18 +194,24 @@ void string_add( CHAR_DATA *ch, char *argument )
         return;
     }
 
-    strcpy( buf, *ch->desc->pString );
-
     if ( *argument == '~' || *argument == '@' )
     {
         ch->desc->pString = NULL;
         return;
     }
 
-    if ( strlen( buf ) + strlen( argument ) >= ( MAX_STRING_LENGTH - 4 ) )
+    if ( strlen( *ch->desc->pString ) >= sizeof(buf) )
+    {
+        send_to_char( "Existing string too long to edit; line not added.\n\r", ch );
+        return;
+    }
+    strcpy( buf, *ch->desc->pString );
+
+    if ( strlen( argument ) >= ( MAX_STRING_LENGTH - 4 )
+      || strlen( buf ) >= ( MAX_STRING_LENGTH - 4 ) - strlen( argument ) )
     {
         send_to_char( "String too long, truncating.\n\r", ch );
-        strncat( buf, argument, MAX_STRING_LENGTH );
+        strncat( buf, argument, sizeof(buf) - strlen(buf) - 1 );
         free_string( *ch->desc->pString );
         *ch->desc->pString = str_dup( buf );
         ch->desc->pString = NULL;
@@ -207,11 +231,23 @@ void string_add( CHAR_DATA *ch, char *argument )
  * Thanks to Kalgen for the new procedure (no more bug!)
  * Original wordwrap() written by Surreality.
  */
+static bool append_checked( char *dest, size_t capacity, const char *src )
+{
+    size_t used = strlen( dest );
+    size_t added = strlen( src );
+
+    if ( used >= capacity || added >= capacity - used )
+        return FALSE;
+    memcpy( dest + used, src, added + 1 );
+    return TRUE;
+}
+
 char *format_string( char *oldstring /*, bool fSpace */)
 {
   char xbuf[MAX_STRING_LENGTH];
   char xbuf2[MAX_STRING_LENGTH];
   char *rdesc;
+  char *result;
   long i=0;
   bool cap=TRUE;
   
@@ -221,9 +257,12 @@ char *format_string( char *oldstring /*, bool fSpace */)
   
   for (rdesc = oldstring; *rdesc; rdesc++)
   {
+    /* One input character may expand to punctuation, a quote and two spaces. */
+    if (i > (long)sizeof(xbuf) - 5)
+      goto too_long;
     if (*rdesc=='\n')
     {
-      if (xbuf[i-1] != ' ')
+      if (i > 0 && xbuf[i-1] != ' ')
       {
         xbuf[i]=' ';
         i++;
@@ -232,7 +271,7 @@ char *format_string( char *oldstring /*, bool fSpace */)
     else if (*rdesc=='\r') ;
     else if (*rdesc==' ')
     {
-      if (xbuf[i-1] != ' ')
+      if (i > 0 && xbuf[i-1] != ' ')
       {
         xbuf[i]=' ';
         i++;
@@ -240,7 +279,7 @@ char *format_string( char *oldstring /*, bool fSpace */)
     }
     else if (*rdesc==')')
     {
-      if (xbuf[i-1]==' ' && xbuf[i-2]==' ' && 
+      if (i >= 3 && xbuf[i-1]==' ' && xbuf[i-2]==' ' &&
           (xbuf[i-3]=='.' || xbuf[i-3]=='?' || xbuf[i-3]=='!'))
       {
         xbuf[i-2]=*rdesc;
@@ -255,7 +294,7 @@ char *format_string( char *oldstring /*, bool fSpace */)
       }
     }
     else if (*rdesc=='.' || *rdesc=='?' || *rdesc=='!') {
-      if (xbuf[i-1]==' ' && xbuf[i-2]==' ' && 
+      if (i >= 3 && xbuf[i-1]==' ' && xbuf[i-2]==' ' &&
           (xbuf[i-3]=='.' || xbuf[i-3]=='?' || xbuf[i-3]=='!')) {
         xbuf[i-2]=*rdesc;
         if (*(rdesc+1) != '\"')
@@ -328,31 +367,42 @@ char *format_string( char *oldstring /*, bool fSpace */)
     if (i)
     {
       *(rdesc+i)=0;
-      strcat(xbuf,rdesc);
-      strcat(xbuf,"\n\r");
+      if (!append_checked(xbuf, sizeof(xbuf), rdesc)
+       || !append_checked(xbuf, sizeof(xbuf), "\n\r"))
+        goto too_long;
       rdesc += i+1;
       while (*rdesc == ' ') rdesc++;
     }
     else
     {
+      char split = rdesc[75];
       bug ("No spaces", 0);
       *(rdesc+75)=0;
-      strcat(xbuf,rdesc);
-      strcat(xbuf,"-\n\r");
-      rdesc += 76;
+      if (!append_checked(xbuf, sizeof(xbuf), rdesc)
+       || !append_checked(xbuf, sizeof(xbuf), "-\n\r"))
+        goto too_long;
+      /* Restore the split character; the old code silently dropped it. */
+      rdesc[75] = split;
+      rdesc += 75;
     }
   }
-  while (*(rdesc+i) && (*(rdesc+i)==' '||
-                        *(rdesc+i)=='\n'||
-                        *(rdesc+i)=='\r'))
-    i--;
-  *(rdesc+i+1)=0;
-  strcat(xbuf,rdesc);
-  if (xbuf[strlen(xbuf)-2] != '\n')
-    strcat(xbuf,"\n\r");
+   i = strlen(rdesc);
+   while (i > 0 && (rdesc[i-1]==' ' || rdesc[i-1]=='\n' || rdesc[i-1]=='\r'))
+     i--;
+   rdesc[i]=0;
+   if (!append_checked(xbuf, sizeof(xbuf), rdesc))
+     goto too_long;
+   if (strlen(xbuf) < 2 || xbuf[strlen(xbuf)-2] != '\n')
+     if (!append_checked(xbuf, sizeof(xbuf), "\n\r"))
+       goto too_long;
 
+  result = str_dup(xbuf);
   free_string(oldstring);
-  return(str_dup(xbuf));
+  return result;
+
+too_long:
+  bug("Format_string: result too long.", 0);
+  return oldstring;
 }
 
 
@@ -360,10 +410,12 @@ char *format_string( char *oldstring /*, bool fSpace */)
 /*
  * Pick off one argument from a string and return the rest.
  * Understands quotes, parenthesis (barring ) ('s) and percentages.
+ * arg_first must hold MAX_INPUT_LENGTH bytes.
  */
 char *first_arg( char *argument, char *arg_first, bool fCase )
 {
     char cEnd;
+    size_t length = 0;
 
     while ( *argument == ' ' )
 	argument++;
@@ -387,12 +439,13 @@ char *first_arg( char *argument, char *arg_first, bool fCase )
 	    argument++;
 	    break;
 	}
-    if ( fCase ) *arg_first = LOWER(*argument);
-            else *arg_first = *argument;
-	arg_first++;
+        if ( length < MAX_INPUT_LENGTH - 1 )
+        {
+            arg_first[length++] = fCase ? LOWER(*argument) : *argument;
+        }
 	argument++;
     }
-    *arg_first = '\0';
+    arg_first[length] = '\0';
 
     while ( *argument == ' ' )
 	argument++;
@@ -404,31 +457,29 @@ char *first_arg( char *argument, char *arg_first, bool fCase )
 
 char * string_unpad( char * argument )
 {
-    char buf[MAX_STRING_LENGTH];
     char *s;
+    char *result;
+    size_t length;
 
     s = argument;
 
     while ( *s == ' ' )
         s++;
 
-    strcpy( buf, s );
-    s = buf;
-
-    if ( *s != '\0' )
+    length = strlen( s );
+    while ( length > 0 && s[length-1] == ' ' )
+        length--;
+    /* Do not modify s: it may be a shared, read-only database string. */
+    if ( length == 0 )
+        result = str_dup( "" );
+    else
     {
-        while ( *s != '\0' )
-            s++;
-        s--;
-
-        while( *s == ' ' )
-            s--;
-        s++;
-        *s = '\0';
+        result = alloc_mem( length + 1 );
+        memcpy( result, s, length );
+        result[length] = '\0';
     }
-
     free_string( argument );
-    return str_dup( buf );
+    return result;
 }
 
 
