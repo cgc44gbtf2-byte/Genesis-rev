@@ -5,6 +5,10 @@ CLASS_MODULE_SOURCES = \
   classes/vampire/vampire.c \
   classes/vampire/presence.c \
   classes/vampire/beast.c \
+  classes/vampire/state.c \
+  classes/vampire/obfuscate.c \
+  classes/vampire/dominate.c \
+  classes/vampire/chimerstry.c \
   classes/werewolf/werewolf.c \
   classes/werewolf/wwbreed.c \
   classes/werewolf/wwauspice.c \

@@ -34,8 +34,8 @@ shared fangs/claws/sight helpers, and Rage still calls the existing Werewolf
 transformation code.
 
 Fangs, Claws, Nightsight, Calm and Flex remain in `clan.c`. In particular,
-Calm explicitly supports both Werewolves and Ninjas. Earthmeld and the
-Werewolf transformation helpers also remain there for a later bounded review;
+Calm explicitly supports both Werewolves and Ninjas. At this stage Earthmeld
+and the Werewolf transformation helpers remained for a later bounded review;
 location in a shared file does not mean every class can use them.
 
 No cooldown, eligibility, random distribution, resource payment, damage,
@@ -45,11 +45,43 @@ Rage retains its 10–20 increase, transformation threshold and 12-pulse wait.
 Existing legacy wording and edge cases are not silently corrected during
 this extraction.
 
+## Stage 3: Vampire states, targeting and illusion ownership
+
+Seven more handlers have byte-identical bodies relative to pre-extraction head
+`0f6598af956132dce3ec8070311eabcdfbc90a34`. The rest of `clan.c` differs only by
+their removal and blank lines. The existing copyright notices are retained.
+
+| Owner | Existing handlers moved |
+| --- | --- |
+| `vampire/state.c` | `do_regenerate`, `do_earthmeld` |
+| `vampire/obfuscate.c` | `do_vanish` |
+| `vampire/presence.c` | `do_summoning` |
+| `vampire/dominate.c` | `do_possession` |
+| `vampire/chimerstry.c` | `do_mirrorimage`, `do_control` |
+
+Regenerate keeps its Vampire-only, **no-discipline-rank** gate. Earthmeld keeps
+both existing conditions: `get_disc()` returns zero for non-Vampires, so its
+effective class/rank gate remains Vampire/Protean 3. No condition was simplified.
+Vanish keeps Obfuscate 1/self and 3/group behavior; Summoning keeps Presence 4;
+Possession keeps Dominate 3; Mirror Image/Control keep Chimerstry 1/5.
+Public names, registration order, wait states and resource behavior are unchanged.
+
+`do_vampire` is a general feeding/embracing-consent toggle, not a Vampire-only
+power. It stays shared, as do Shadowplane, Shield, Scry, Truesight and the
+multi-class illusion helpers. Serpent and the other transformations remain
+for a separate lifecycle review: `clear_stats()` can trigger autosaving and
+must not be treated as a harmless local flag reset.
+
+This mechanical stage also exposed an existing Possession ownership issue:
+unlike Control Illusion, it does not reject an already-bound caster. A synthetic
+real-engine probe reproduced retargeting while the first NPC still points to
+the caster. That is separate hardening work, not an intended balance rule.
+
 ### Current class-source ownership
 
 | Owning class | Files under `Genesis/src/classes/` | Responsibility |
 | --- | --- | --- |
-| Vampire | `vampire/disc.c`, `vampire/vampire.c`, `vampire/presence.c`, `vampire/beast.c` | Additional discipline powers; named teaching/blood powers; Presence toggles and Beast callbacks |
+| Vampire | `vampire/disc.c`, `vampire/vampire.c`, `vampire/presence.c`, `vampire/beast.c`, `vampire/state.c`, `vampire/obfuscate.c`, `vampire/dominate.c`, `vampire/chimerstry.c` | Disciplines, named teaching/blood powers, Presence, Beast, recovery/melding, invisibility, possession and illusions |
 | Werewolf | `werewolf/werewolf.c`, `werewolf/wwbreed.c`, `werewolf/wwauspice.c`, `werewolf/wwtribe.c`, `werewolf/instincts.c` | Progression/menu, breed/auspice/tribe gifts, Umbral Vision and Rage |
 | Sorcerer | `sorcerer/sorcerer.c` | Spellbook creation, pages, chanting and associated effects |
 | Drow | `drow/drow.c` | Drow powers, ranks and attunement |
@@ -67,7 +99,7 @@ compatibility; it is not yet an isolated public/private API boundary.
 
 ### One authoritative class-source manifest
 
-`classes/modules.mk` explicitly selects the 17 class C files for **both** the
+`classes/modules.mk` explicitly selects the 21 class C files for **both** the
 production executable and real-engine regression fixtures. A file copied into
 a class directory is not silently compiled into the game.
 
@@ -136,9 +168,18 @@ all ten classes plus classless actors, NPCs without player data, shared
 fangs/claws/sight eligibility, Flex and Ninja/Werewolf Calm.
 It uses synthetic state only and never loads accounts or a world archive.
 
+The eighteenth suite, `tests/test_vampire_modules.c`, passed under ASan/UBSan
+against the pre-extraction implementation before running against the owned
+modules. It exercises all seven real command routes, rank and class rejection
+(including NPCs without `pcdata`), regeneration/melding toggles, group invisibility
+target isolation, summoning consent/fighting/room restrictions and NPC flags,
+possession/control guards and bindings, actual mirror creation and the existing
+five-follower cap, unchanged resources and waits. Clone gear-copy branches and
+production world configuration are not covered by its synthetic no-gear clones.
+
 Ten Python layout checks cover:
 
-- All ten class owners and all 17 explicitly selected source files.
+- All ten class owners and all 21 explicitly selected source files.
 - No stale root-level class copies or removed Mage header.
 - Exact serialized class constants and unchanged identity predicates.
 - Equality of the actual production/test Makefile source expansions.
@@ -151,7 +192,7 @@ Ten Python layout checks cover:
 now inspect the same manifest-selected class sources instead of only root
 `*.c` files; command, world-reference and skill-reference coverage is retained.
 
-Verification for the current stage uses all **17 normal and ASan/UBSan C suites**,
+Verification for the current stage uses all **18 normal and ASan/UBSan C suites**,
 **20 unique Python catalog/layout checks**, the full production build and
 isolated TCP/TERM smoke test, followed by the Debian 12/13 and Ubuntu
 22.04/24.04 CI matrix. A test result is recorded in the PR only after it passes;

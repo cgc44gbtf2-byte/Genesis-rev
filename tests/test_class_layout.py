@@ -8,7 +8,8 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SRC = ROOT / "Genesis" / "src"
 EXPECTED = {
-    "vampire": ("disc", "vampire", "presence", "beast"),
+    "vampire": ("disc", "vampire", "presence", "beast", "state",
+                "obfuscate", "dominate", "chimerstry"),
     "werewolf": ("werewolf", "wwbreed", "wwauspice", "wwtribe", "instincts"),
     "sorcerer": ("sorcerer",),
     "drow": ("drow",),
@@ -45,7 +46,7 @@ class ClassLayoutChecks(unittest.TestCase):
         expected = {f"classes/{family}/{stem}.c"
                     for family, stems in EXPECTED.items() for stem in stems}
         selected = manifest()
-        self.assertEqual(len(selected), 17)
+        self.assertEqual(len(selected), 21)
         self.assertEqual(len(selected), len(set(selected)))
         self.assertEqual(set(selected), expected)
         self.assertEqual(
@@ -140,11 +141,20 @@ class ClassLayoutChecks(unittest.TestCase):
             "do_beastlike": "classes/vampire/beast.c",
             "do_shadowsight": "classes/werewolf/instincts.c",
             "do_rage": "classes/werewolf/instincts.c",
+            "do_regenerate": "classes/vampire/state.c",
+            "do_earthmeld": "classes/vampire/state.c",
+            "do_vanish": "classes/vampire/obfuscate.c",
+            "do_summoning": "classes/vampire/presence.c",
+            "do_possession": "classes/vampire/dominate.c",
+            "do_mirrorimage": "classes/vampire/chimerstry.c",
+            "do_control": "classes/vampire/chimerstry.c",
         }
         for fn, path in expected.items():
             self.assertEqual(owners[fn], [path], fn)
         for fn in ("do_fangs", "do_claws", "do_nightsight", "do_calm",
-                   "do_flex", "do_earthmeld", "do_werewolf", "do_unwerewolf"):
+                   "do_flex", "do_werewolf", "do_unwerewolf", "do_vampire",
+                   "do_shadowplane", "do_shield", "do_truesight", "do_scry",
+                   "do_serpent"):
             self.assertEqual(owners[fn], ["clan.c"], fn)
 
 

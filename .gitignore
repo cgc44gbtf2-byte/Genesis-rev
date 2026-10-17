@@ -18,6 +18,7 @@ tests/test_restored_spells
 tests/test_basic_buffs
 tests/test_class_identity
 tests/test_class_handlers
+tests/test_vampire_modules
 tests/stun_engine/
 Genesis/player/
 Genesis/backup/

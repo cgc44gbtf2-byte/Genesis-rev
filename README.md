@@ -296,13 +296,22 @@ costs, ranks, skill slots, player-data layout or hybrid availability change.
 See [class ownership and the remaining cleanup stages](deploy/CLASS_LAYOUT.md)
 for the ten-class map, shared engine hooks and the separate saved-field
 migration work. `make test` now includes ten layout checks alongside
-17 C suites; `python3 tests/test_catalog.py` runs ten additional catalog checks.
+18 C suites; `python3 tests/test_catalog.py` runs ten additional catalog checks.
 Runtime optimization remains measurement-driven, not an assumed benefit of
 file organization.
 
-The next bounded extraction moves six existing Vampire/Werewolf handlers out
+The first bounded extraction moved six existing Vampire/Werewolf handlers out
 of `clan.c`: Majesty, Awe, Humanity, Beastlike, Umbral Vision and Rage. Their
 function bodies are byte-identical to the previous head; shared Fangs, Claws,
 Nightsight, Calm and Flex stay in the shared module. The seventeenth suite was
 run against the old handlers before extraction and exercises the same
 real-engine behavior afterward, without loading real accounts.
+
+The next batch extracts Regenerate, Earthmeld, Vanish, Summoning, Possession,
+Mirror Image and Control Illusion into Vampire-owned modules. Each of these
+seven bodies was compared byte-for-byte with head `0f6598a`, and the eighteenth
+full-engine suite passed before and after extraction. It checks rank/class
+gates, group invisibility, summoning consent/room restrictions, NPC bindings,
+actual illusion creation and the five-follower cap. Shared commands and
+transformation/autosave helpers remain in `clan.c`; no save migration or
+numerical rebalance is bundled with the extraction.

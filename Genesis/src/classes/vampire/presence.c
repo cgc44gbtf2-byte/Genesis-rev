@@ -22,7 +22,7 @@
  *  permission to authorise the use of this code.                          *
  ***************************************************************************/
 
-/* Vampire-only Presence toggles extracted from clan.c without rule changes. */
+/* Vampire-only Presence powers extracted from clan.c without rule changes. */
 #include <sys/types.h>
 #include <stdio.h>
 #include <time.h>
@@ -96,5 +96,70 @@ void do_awe( CHAR_DATA *ch, char *argument )
     send_to_char("You are now awe-inspiring.\n\r",ch);
     act("$n suddenly appears very awe-inspiring.", ch, NULL, NULL, TO_ROOM);
     SET_BIT(ch->extra, EXTRA_AWE);
+    return;
+}
+
+void do_summoning( CHAR_DATA *ch, char *argument )
+{
+    CHAR_DATA *victim;
+    char arg [MAX_INPUT_LENGTH];
+
+    argument = one_argument( argument, arg );
+
+    if (IS_NPC(ch)) return;
+
+    if (!IS_VAMPIRE(ch))
+    {
+	send_to_char( "Huh?\n\r", ch );
+	return;
+    }
+
+    if (get_disc(ch,DISC_PRESENCE) < 4)
+    {
+	send_to_char("You require level 4 Presence to use Summoning.\n\r",ch);
+	return;
+    }
+
+    act( "A look of concentration crosses $n's face.", ch, NULL, NULL, TO_ROOM );
+
+    if ( ( victim = get_char_world( ch, arg ) ) == NULL
+    ||   victim == ch
+    ||   victim->in_room == NULL
+    ||   ch->in_room == NULL
+    ||   victim->level > (get_disc(ch,DISC_PRESENCE) * 140))
+    {
+	send_to_char( "Nothing happens!\n\r", ch );
+	return;
+    }
+
+    if ( IS_SET(victim->in_room->room_flags, ROOM_SAFE)
+    ||   IS_SET(victim->in_room->room_flags, ROOM_PRIVATE)
+    ||   IS_SET(victim->in_room->room_flags, ROOM_SOLITARY)
+    ||   IS_SET(victim->in_room->room_flags, ROOM_NO_RECALL)
+    ||   victim->fighting != NULL
+    ||   (!IS_NPC(victim) && !IS_EXTRA(victim, EXTRA_SUMMON) ))
+    {
+	send_to_char( "Nothing happens.\n\r", ch );
+	if (!IS_NPC(victim) && ch != victim && IS_MORE(victim, MORE_GUARDIAN))
+	{
+	    guardian_message( victim );
+	    act("$n just failed to use Summoning on you.",ch,NULL,victim,TO_VICT);
+	}
+	return;
+    }
+
+    act( "$n disappears suddenly.", victim, NULL, NULL, TO_ROOM );
+    char_from_room( victim );
+    char_to_room( victim, ch->in_room );
+    act( "$n arrives suddenly.", victim, NULL, NULL, TO_ROOM );
+    act( "$N has summoned you!", victim, NULL, ch,   TO_CHAR );
+    do_look( victim, "auto" );
+    WAIT_STATE( ch, 12 );
+    if (IS_NPC(victim)) SET_BIT(victim->act, ACT_NOEXP);
+    if (!IS_NPC(victim) && ch != victim && IS_MORE(victim, MORE_GUARDIAN))
+    {
+	guardian_message( victim );
+	act("$n just used Summoning on you.",ch,NULL,victim,TO_VICT);
+    }
     return;
 }
