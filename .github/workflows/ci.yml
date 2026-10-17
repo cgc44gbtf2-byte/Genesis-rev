@@ -1,0 +1,19 @@
+name: C build and regression tests
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install compiler and crypt library
+        run: sudo apt-get update && sudo apt-get install -y build-essential libcrypt-dev
+      - name: Build
+        run: make -j2
+      - name: Regression tests
+        run: make test
+      - name: Address and undefined-behavior sanitizers
+        run: make sanitize
