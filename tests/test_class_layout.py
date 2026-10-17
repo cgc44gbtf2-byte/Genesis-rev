@@ -8,8 +8,8 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SRC = ROOT / "Genesis" / "src"
 EXPECTED = {
-    "vampire": ("disc", "vampire"),
-    "werewolf": ("werewolf", "wwbreed", "wwauspice", "wwtribe"),
+    "vampire": ("disc", "vampire", "presence", "beast"),
+    "werewolf": ("werewolf", "wwbreed", "wwauspice", "wwtribe", "instincts"),
     "sorcerer": ("sorcerer",),
     "drow": ("drow",),
     "highlander": ("highland",),
@@ -45,7 +45,7 @@ class ClassLayoutChecks(unittest.TestCase):
         expected = {f"classes/{family}/{stem}.c"
                     for family, stems in EXPECTED.items() for stem in stems}
         selected = manifest()
-        self.assertEqual(len(selected), 14)
+        self.assertEqual(len(selected), 17)
         self.assertEqual(len(selected), len(set(selected)))
         self.assertEqual(set(selected), expected)
         self.assertEqual(
@@ -126,6 +126,26 @@ class ClassLayoutChecks(unittest.TestCase):
         for source in (ROOT / "tests").glob("*.c"):
             includes = re.findall(r'#include\s+"([^"]+)"', source.read_text())
             self.assertFalse(set(includes) & set(old_paths), source.name)
+
+    def test_extracted_and_shared_handlers_keep_their_owners(self):
+        owners = collections.defaultdict(list)
+        for path in [*SRC.glob("*.c"), *(SRC / p for p in manifest())]:
+            source = re.sub(r"/\*.*?\*/|//[^\n]*", "", path.read_text(), flags=re.S)
+            for fn in re.findall(r"(?m)^void\s+(do_\w+)\s*\([^;{}]*\)\s*\{", source):
+                owners[fn].append(str(path.relative_to(SRC)))
+        expected = {
+            "do_majesty": "classes/vampire/presence.c",
+            "do_awe": "classes/vampire/presence.c",
+            "do_humanity": "classes/vampire/beast.c",
+            "do_beastlike": "classes/vampire/beast.c",
+            "do_shadowsight": "classes/werewolf/instincts.c",
+            "do_rage": "classes/werewolf/instincts.c",
+        }
+        for fn, path in expected.items():
+            self.assertEqual(owners[fn], [path], fn)
+        for fn in ("do_fangs", "do_claws", "do_nightsight", "do_calm",
+                   "do_flex", "do_earthmeld", "do_werewolf", "do_unwerewolf"):
+            self.assertEqual(owners[fn], ["clan.c"], fn)
 
 
 if __name__ == "__main__":

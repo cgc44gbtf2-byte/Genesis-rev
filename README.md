@@ -89,7 +89,7 @@ on all interfaces by default; restrict access with the host firewall.
 
 ## Verification and remaining scope
 
-Sixteen regression suites cover network/authentication, data readers,
+Seventeen regression suites cover network/authentication, data readers,
 editor/command buffer boundaries, atomic player saves and signal handling,
 and gameplay fixes. Normal and ASan/UBSan suites passed locally. The complete
 server compiled and booted with original area/help data in an isolated
@@ -157,7 +157,7 @@ See [Debian/Ubuntu installation](deploy/INSTALL.md) and the reviewed
 account, a root-owned read-only executable and restricted writable data
 directories. No service is installed or enabled by this repository.
 
-CI validates the unit without starting systemd, runs sixteen normal/sanitizer
+CI validates the unit without starting systemd, runs seventeen normal/sanitizer
 suites, and boots an isolated world then verifies a clean SIGTERM exit.
 Unit validation does not prove the sandbox or service operates correctly
 on every host; follow the installation guide's host-level checks.
@@ -295,7 +295,14 @@ costs, ranks, skill slots, player-data layout or hybrid availability change.
 
 See [class ownership and the remaining cleanup stages](deploy/CLASS_LAYOUT.md)
 for the ten-class map, shared engine hooks and the separate saved-field
-migration work. `make test` now includes nine layout checks alongside
-16 C suites; `python3 tests/test_catalog.py` runs ten additional catalog checks.
+migration work. `make test` now includes ten layout checks alongside
+17 C suites; `python3 tests/test_catalog.py` runs ten additional catalog checks.
 Runtime optimization remains measurement-driven, not an assumed benefit of
 file organization.
+
+The next bounded extraction moves six existing Vampire/Werewolf handlers out
+of `clan.c`: Majesty, Awe, Humanity, Beastlike, Umbral Vision and Rage. Their
+function bodies are byte-identical to the previous head; shared Fangs, Claws,
+Nightsight, Calm and Flex stay in the shared module. The seventeenth suite was
+run against the old handlers before extraction and exercises the same
+real-engine behavior afterward, without loading real accounts.

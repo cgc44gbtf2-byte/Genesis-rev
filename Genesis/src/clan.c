@@ -249,100 +249,6 @@ void do_nightsight( CHAR_DATA *ch, char *argument )
     return;
 }
 
-void do_majesty( CHAR_DATA *ch, char *argument )
-{
-    char arg[MAX_INPUT_LENGTH];
-    char buf[MAX_INPUT_LENGTH];
-
-    argument = one_argument( argument, arg );
-
-    if (IS_NPC(ch)) return;
-
-    if (!IS_VAMPIRE(ch))
-    {
-	send_to_char("Huh?\n\r",ch);
-	return;
-    }
-    if (get_disc(ch,DISC_PRESENCE) < 5)
-    {
-	send_to_char("You require level 5 Presence to use Majesty.\n\r",ch);
-	return;
-    }
-
-    if (IS_ITEMAFF(ch,ITEMA_PEACE) )
-    {
-	send_to_char("You lower your Majesty.\n\r",ch);
-	act("$n no longer seems so imposing.", ch, NULL, NULL, TO_ROOM);
-	REMOVE_BIT(ch->itemaffect, ITEMA_PEACE);
-	ch->pcdata->majesty = 120;
-	return;
-    }
-    if (ch->pcdata->majesty > 0)
-    {
-	if (ch->pcdata->majesty > 1)
-	    sprintf(buf,"You cannot raise your Majesty for another %li seconds.\n\r",ch->pcdata->majesty);
-	else
-	    sprintf(buf,"You cannot raise your Majesty for another 1 second.\n\r");
-	send_to_char(buf,ch);
-	return;
-    }
-    send_to_char("Your raise your Majesty.\n\r",ch);
-    act("$n suddenly appears very imposing.", ch, NULL, NULL, TO_ROOM);
-    SET_BIT(ch->itemaffect, ITEMA_PEACE);
-    return;
-}
-
-void do_awe( CHAR_DATA *ch, char *argument )
-{
-    if (IS_NPC(ch)) return;
-
-    if (!IS_VAMPIRE(ch))
-    {
-	send_to_char("Huh?\n\r",ch);
-	return;
-    }
-    if (get_disc(ch,DISC_PRESENCE) < 1)
-    {
-	send_to_char("You require level 1 Presence to use Awe.\n\r",ch);
-	return;
-    }
-
-    if (IS_EXTRA(ch,EXTRA_AWE) )
-    {
-	send_to_char("You are no longer awe-inspiring.\n\r",ch);
-	act("$n no longer appears so awe-inspiring.", ch, NULL, NULL, TO_ROOM);
-	REMOVE_BIT(ch->extra, EXTRA_AWE);
-	return;
-    }
-    send_to_char("You are now awe-inspiring.\n\r",ch);
-    act("$n suddenly appears very awe-inspiring.", ch, NULL, NULL, TO_ROOM);
-    SET_BIT(ch->extra, EXTRA_AWE);
-    return;
-}
-
-void do_shadowsight( CHAR_DATA *ch, char *argument )
-{
-    char      arg [MAX_INPUT_LENGTH];
-
-    argument = one_argument( argument, arg );
-
-    if (IS_NPC(ch)) return;
-    if (!IS_WEREWOLF(ch))
-    {
-	send_to_char("Huh?\n\r",ch);
-	return;
-    }
-    if (IS_AFFECTED(ch,AFF_SHADOWSIGHT) )
-    {
-	send_to_char("You can no longer see between planes.\n\r",ch);
-	REMOVE_BIT(ch->affected_by, AFF_SHADOWSIGHT);
-	return;
-    }
-    send_to_char("You can now see between planes.\n\r",ch);
-    SET_BIT(ch->affected_by, AFF_SHADOWSIGHT);
-    return;
-}
-
 void do_outcast( CHAR_DATA *ch, char *argument )
 {
     char   arg [MAX_INPUT_LENGTH];
@@ -1674,48 +1580,6 @@ void vamp_rage( CHAR_DATA *ch )
     return;
 }
 
-void do_humanity( CHAR_DATA *ch, char *argument )
-{
-    char       arg [MAX_INPUT_LENGTH];
-
-    argument = one_argument( argument, arg );
-
-    if (!IS_NPC(ch) && IS_VAMPIRE(ch) && ch->beast > 0
-	&& ch->beast < 100 && number_range(1, 500) <= ch->beast)
-    {
-	if (ch->beast == 1)
-	{
-	    send_to_char("You have attained Golconda!\n\r", ch);
-	}
-	else
-	    send_to_char("You feel slightly more in control of your beast.\n\r", ch);
-	ch->beast -= 1;
-    }
-    return;
-}
-
-void do_beastlike( CHAR_DATA *ch, char *argument )
-{
-    char       arg [MAX_INPUT_LENGTH];
-
-    argument = one_argument( argument, arg );
-
-    if (IS_VAMPIRE(ch) && ch->beast < 100 && number_range(1, 200) <= ch->beast)
-    {
-	if (ch->beast < 99)
-	    send_to_char("You feel your beast take more control over your actions.\n\r", ch);
-	else
-	    send_to_char("Your beast has fully taken over control of your actions!\n\r", ch);
-	ch->beast += 1;
-	if (get_disc(ch,DISC_PROTEAN) > 0 && 
-	    !IS_VAMPAFF(ch, VAM_NIGHTSIGHT) ) do_nightsight(ch,"");
-	if (!IS_VAMPAFF(ch, VAM_FANGS)) do_fangs(ch,"");
-	if (get_disc(ch,DISC_PROTEAN) > 1 && 
-	    !IS_VAMPAFF(ch, VAM_CLAWS) ) do_claws(ch,"");
-    }
-    return;
-}
-
 void do_feed( CHAR_DATA *ch, char *argument )
 {
     CHAR_DATA *victim;
@@ -2390,29 +2254,6 @@ void do_flex( CHAR_DATA *ch, char *argument )
 	REMOVE_BIT(ch->affected_by, AFF_SHADOW);
     }
     WAIT_STATE(ch,12);
-    return;
-}
-
-void do_rage( CHAR_DATA *ch, char *argument )
-{
-    if (IS_NPC(ch)) return;
-
-    if (!IS_WEREWOLF(ch))
-    {
-	send_to_char("Huh?\n\r",ch);
-	return;
-    }
-
-    if (!IS_SET(ch->act, PLR_WOLFMAN) || ch->pcdata->wolf < 300)
-    {
-	send_to_char("You start snarling angrilly.\n\r",ch);
-	act("$n starts snarling angrilly.",ch,NULL,NULL,TO_ROOM);
-	ch->pcdata->wolf += number_range(10,20);
-	if (ch->pcdata->wolf >= 100) do_werewolf(ch,"");
-	WAIT_STATE(ch,12);
-	return;
-    }
-    send_to_char("But you are already in a rage!\n\r",ch);
     return;
 }
 
