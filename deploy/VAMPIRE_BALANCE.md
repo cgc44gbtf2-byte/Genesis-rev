@@ -92,12 +92,12 @@ attack engine and is not a fixed damage number.
 | Werewolf / Falling Touch | No explicit command-local spend | 6 s | `random(125,250) * Stargazers`; also imposes victim lag |
 | Sorcerer / Red chant | 600 mana before chant modifiers | 3.75 s | `random(140,180) * Red rank` before book/chant modifiers |
 
-Source: [vampire.c](../Genesis/src/vampire.c),
-[monk.c](../Genesis/src/monk.c), [mage.c](../Genesis/src/mage.c),
-[elemental.c](../Genesis/src/elemental.c), [ninja.c](../Genesis/src/ninja.c),
-[drow.c](../Genesis/src/drow.c), [dragon.c](../Genesis/src/dragon.c),
-[highland.c](../Genesis/src/highland.c), [wwtribe.c](../Genesis/src/wwtribe.c),
-[sorcerer.c](../Genesis/src/sorcerer.c),
+Source: [vampire.c](../Genesis/src/classes/vampire/vampire.c),
+[monk.c](../Genesis/src/classes/monk/monk.c), [mage.c](../Genesis/src/classes/mage/mage.c),
+[elemental.c](../Genesis/src/classes/elemental/elemental.c), [ninja.c](../Genesis/src/classes/ninja/ninja.c),
+[drow.c](../Genesis/src/classes/drow/drow.c), [dragon.c](../Genesis/src/classes/dragon/dragon.c),
+[highland.c](../Genesis/src/classes/highlander/highland.c), [wwtribe.c](../Genesis/src/classes/werewolf/wwtribe.c),
+[sorcerer.c](../Genesis/src/classes/sorcerer/sorcerer.c),
 [update.c](../Genesis/src/update.c), [clan.c](../Genesis/src/clan.c),
 [act_move.c](../Genesis/src/act_move.c), and [merc.h](../Genesis/src/merc.h).
 

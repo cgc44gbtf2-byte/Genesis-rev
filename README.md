@@ -89,7 +89,7 @@ on all interfaces by default; restrict access with the host firewall.
 
 ## Verification and remaining scope
 
-Fifteen regression suites cover network/authentication, data readers,
+Sixteen regression suites cover network/authentication, data readers,
 editor/command buffer boundaries, atomic player saves and signal handling,
 and gameplay fixes. Normal and ASan/UBSan suites passed locally. The complete
 server compiled and booted with original area/help data in an isolated
@@ -157,7 +157,7 @@ See [Debian/Ubuntu installation](deploy/INSTALL.md) and the reviewed
 account, a root-owned read-only executable and restricted writable data
 directories. No service is installed or enabled by this repository.
 
-CI validates the unit without starting systemd, runs fifteen normal/sanitizer
+CI validates the unit without starting systemd, runs sixteen normal/sanitizer
 suites, and boots an isolated world then verifies a clean SIGTERM exit.
 Unit validation does not prove the sandbox or service operates correctly
 on every host; follow the installation guide's host-level checks.
@@ -284,3 +284,18 @@ timings and damage with the other nine classes. It documents blood conservation,
 the removal of last-blood executions, Quietus Leech hardening, and the remaining
 high-HP/buff-duration playtesting questions. These are not claims of equal
 strength across classes.
+
+## Class-code organization
+
+Class-specific implementations are grouped under `Genesis/src/classes/<class>/`.
+The explicit `classes/modules.mk` manifest is shared by production and
+real-engine tests; stable saved class IDs live in `classes/class_ids.h`.
+All 15 moved class/header files preserve their pre-cleanup contents. No class
+costs, ranks, skill slots, player-data layout or hybrid availability change.
+
+See [class ownership and the remaining cleanup stages](deploy/CLASS_LAYOUT.md)
+for the ten-class map, shared engine hooks and the separate saved-field
+migration work. `make test` now includes nine layout checks alongside
+16 C suites; `python3 tests/test_catalog.py` runs ten additional catalog checks.
+Runtime optimization remains measurement-driven, not an assumed benefit of
+file organization.

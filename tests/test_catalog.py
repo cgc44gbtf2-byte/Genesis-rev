@@ -7,6 +7,14 @@ import zipfile
 
 SRC = pathlib.Path(__file__).resolve().parents[1] / "Genesis" / "src"
 
+def class_sources():
+    return [SRC / path for path in re.findall(
+        r"classes/[\w/]+\.c", (SRC / "classes/modules.mk").read_text())]
+
+
+def engine_sources():
+    return [*SRC.glob("*.c"), *class_sources()]
+
 
 class CatalogChecks(unittest.TestCase):
     def test_displayed_vampire_commands_dispatch_to_the_right_handler(self):
@@ -26,7 +34,7 @@ class CatalogChecks(unittest.TestCase):
             self.assertEqual(selected, handler, name)
 
     def test_disabled_gifts_are_not_advertised_as_working(self):
-        source = (SRC / "werewolf.c").read_text()
+        source = (SRC / "classes/werewolf/werewolf.c").read_text()
         for label in ("Quicksand[disabled]", "Lycaon[disabled]"):
             self.assertTrue(label in source, f"missing explicit disabled label: {label}")
 
@@ -89,22 +97,21 @@ class CatalogChecks(unittest.TestCase):
             r"^#define\s+(\w+)\s+\(?([0-9]+)\)?\s*(?:/\*.*)?$", header, re.M)}
         self.assertIn(constants["ROOM_VNUM_TEMPLE"], world["ROOMS"])
         self.assertIn(constants["ROOM_VNUM_IN_OBJECT"], world["ROOMS"])
-        files = ("clan disc vampire werewolf wwbreed wwauspice wwtribe sorcerer "
-                 "drow highland mage dragon ninja monk elemental more").split()
-        for filename in files:
+        files = [SRC / "clan.c", SRC / "more.c", *class_sources()]
+        for path in files:
             for kind, name in re.findall(r"get_(obj|mob|room)_index\(\s*(\w+)\s*\)",
-                                        (SRC / (filename + ".c")).read_text()):
+                                        path.read_text()):
                 value = int(name) if name.isdigit() else constants.get(name)
                 # Optional Hell is handled by the engine-tested temple fallback.
                 if value is not None and name != "ROOM_VNUM_HELL":
-                    self.assertTrue(value in world[kinds[kind]], f"{filename}: missing {kind} {name}")
+                    self.assertTrue(value in world[kinds[kind]], f"{path}: missing {kind} {name}")
 
     def test_vampire_port_keeps_ids_and_registers_real_powers(self):
         header = (SRC / "merc.h").read_text()
         for name, value in (("THAUMATURGY", 17), ("VICISSITUDE", 18),
                             ("NECROMANCY", 7), ("OBFUSCATE", 9)):
             self.assertRegex(header, rf"#define DISC_{name}\s+{value}\b")
-        source = (SRC / "vampire.c").read_text()
+        source = (SRC / "classes/vampire/vampire.c").read_text()
         self.assertNotIn("blood[2]", source)
         interp = (SRC / "interp.c").read_text()
         for name in ("tasteblood", "bloodrage", "potency", "theftvitae", "cauldronblood"):
@@ -137,7 +144,7 @@ class CatalogChecks(unittest.TestCase):
         self.assertGreater(len(commands), 500)
         counts = collections.Counter(name for name, _ in commands)
         self.assertEqual([name for name, count in counts.items() if count > 1], [])
-        source = "\n".join(path.read_text() for path in SRC.glob("*.c"))
+        source = "\n".join(path.read_text() for path in engine_sources())
         definitions = set(re.findall(r"void\s+(do_\w+)\s*\(", source))
         self.assertEqual({fn for _, fn in commands} - definitions, set())
         self.assertIn(("ward", "do_paradox_ward"), commands)
@@ -148,7 +155,7 @@ class CatalogChecks(unittest.TestCase):
         names = re.findall(r'\{\s*"([^"]+)"\s*,', source)
         self.assertGreater(len(names), 100)
         checked = 0
-        for path in SRC.glob("*.c"):
+        for path in engine_sources():
             for literal in re.findall(r'skill_lookup\(\s*"([^"]+)"\s*\)', path.read_text()):
                 # Production skill_lookup permits prefixes, e.g. blind -> blindness.
                 self.assertTrue(any(name.lower().startswith(literal.lower()) for name in names),

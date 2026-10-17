@@ -6,7 +6,7 @@
  * /tmp/test_wall
  * Add -fsanitize=address,undefined -fno-omit-frame-pointer for sanitizers.
  */
-#include "../Genesis/src/wwauspice.c"
+#include "../Genesis/src/classes/werewolf/wwauspice.c"
 #include <assert.h>
 #include <ctype.h>
 #include <strings.h>

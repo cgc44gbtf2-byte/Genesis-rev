@@ -2,8 +2,9 @@
  * Isolated production-function regressions; no server or game data required.
  * From mudfix:
  * cc -std=gnu17 -DMERC -Dunix -ffunction-sections -fdata-sections \
- *   tests/test_gameplay.c Genesis/src/act_info.c Genesis/src/wwauspice.c \
- *   Genesis/src/mage.c -Wl,--gc-sections -o /tmp/test_gameplay
+ *   -IGenesis/src tests/test_gameplay.c Genesis/src/act_info.c \
+ *   Genesis/src/classes/werewolf/wwauspice.c Genesis/src/classes/mage/mage.c \
+ *   -Wl,--gc-sections -o /tmp/test_gameplay
  * /tmp/test_gameplay
  * Add -fsanitize=address,undefined -fno-omit-frame-pointer for sanitizers.
  */

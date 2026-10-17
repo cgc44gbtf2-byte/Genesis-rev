@@ -1,7 +1,7 @@
 /* Synthetic fixtures only; compile this TU with -ffunction-sections
  * -fdata-sections and link with -Wl,--gc-sections. It includes real spells. */
 #include <assert.h>
-#include "../Genesis/src/mage.c"
+#include "../Genesis/src/classes/mage/mage.c"
 
 static CHAR_DATA caster, target;
 static PC_DATA caster_pc, target_pc;

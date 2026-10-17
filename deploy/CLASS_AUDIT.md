@@ -23,8 +23,9 @@ corresponding training command accepts the purchase.
 | Monk | `monklearn <family> gain` | Next x 10 primal; maximum 8. |
 | Elementalist | `elemskill <element> improve` | Next x 10 primal; maximum 8. Focus requires all eight elements at 8, raises one by 2 and lowers its opposite by 2. Training is blocked while focused. |
 
-Sources: `clan.c`, `werewolf.c`, `sorcerer.c`, `drow.c`, `highland.c`,
-`mage.c`, `dragon.c`, `ninja.c`, `monk.c`, `elemental.c`.
+Sources: shared `Genesis/src/clan.c` and the class-owned files under
+`Genesis/src/classes/`, selected by `classes/modules.mk`.
+See [class ownership](CLASS_LAYOUT.md) for current paths and remaining coupling.
 This table describes progression, not every activation cost. Activation costs,
 including costs of failed random attempts, remain ability-specific.
 
