@@ -2,6 +2,8 @@
 #include <string.h>
 #include <sys/types.h>
 #include <stdlib.h>
+#include <errno.h>
+#include <limits.h>
 #include "merc.h"
 
 long spellpower(CHAR_DATA *ch, long highest_sphere);
@@ -9,6 +11,46 @@ void add_paradox(CHAR_DATA *ch, long paradox, bool botch);
 void backlash(CHAR_DATA *ch);
 long correspondence_level(CHAR_DATA* ch, CHAR_DATA* victim);
 void hearts_blood(CHAR_DATA* ch, long quint);
+
+/* number_range takes int bounds: leave headroom for damage multipliers,
+ * mana costs and sphere bonuses, not merely for strtol's long result. */
+static bool parse_quint(CHAR_DATA *ch, const char *text, long *quint)
+{
+    char *end;
+    const char *p;
+
+    *quint = 0;
+    if (*text == '\0') return TRUE;
+    for (p = text; *p; ++p)
+        if (*p < '0' || *p > '9') break;
+    errno = 0;
+    *quint = strtol(text, &end, 10);
+    if (*p || *end || errno == ERANGE || *quint > INT_MAX / 10000)
+    {
+        send_to_char("Quintessence must be a nonnegative whole number within range.\n\r", ch);
+        return FALSE;
+    }
+    return TRUE;
+}
+
+/* is_safe examines the caster's room. Always undo the temporary move. */
+static bool mage_target_safe(CHAR_DATA *ch, CHAR_DATA *victim)
+{
+    ROOM_INDEX_DATA *location = ch->in_room;
+    bool safe;
+
+    if (location == NULL || victim->in_room == NULL)
+    {
+        send_to_char("They aren't here.\n\r", ch);
+        return TRUE;
+    }
+    char_from_room(ch);
+    char_to_room(ch, victim->in_room);
+    safe = is_safe(ch, victim);
+    char_from_room(ch);
+    char_to_room(ch, location);
+    return safe;
+}
 
 const char * sphere_name [9] =
 {
@@ -49,6 +91,62 @@ Matter 1: Analyze: warlock.c
 #define MANA_RIFT		 500
 #define MANA_QUINT		 300
 
+
+/* Validate deterministic failures before rolls, heart's blood or debits.
+ * Random failures retain the individual spells' existing costs. */
+static bool mage_target_ready(CHAR_DATA *ch, CHAR_DATA *victim,
+                              const char *amount, long base_mana,
+                              bool players_only, bool global_limit,
+                              const char *stat)
+{
+    long quint, correspondence;
+
+    if (!parse_quint(ch, amount, &quint)) return FALSE;
+    if (victim == NULL || victim->in_room == NULL || ch->in_room == NULL)
+    {
+        send_to_char("They aren't here.\n\r", ch);
+        return FALSE;
+    }
+    if (players_only && IS_NPC(victim))
+    {
+        send_to_char("Not on NPCs.\n\r", ch);
+        return FALSE;
+    }
+    correspondence = correspondence_level(ch, victim);
+    if (correspondence > ch->spheres[MCOR])
+    {
+        send_to_char("You don't have enough knowledge of correspondence to target them.\n\r", ch);
+        return FALSE;
+    }
+    if (global_limit && (victim == ch ||
+        (correspondence == 5 && (!IS_NPC(victim) || victim->level > 800))))
+    {
+        send_to_char("You may not target them with electrical chaos.\n\r", ch);
+        return FALSE;
+    }
+    if (stat != NULL)
+    {
+        if (str_cmp(stat, "str") && str_cmp(stat, "dex") &&
+            str_cmp(stat, "con") && str_cmp(stat, "int") && str_cmp(stat, "wis"))
+        {
+            send_to_char("You must select from str, dex, con, int, or wis.\n\r", ch);
+            return FALSE;
+        }
+        if (IS_XTRA(victim, XTRA_BETTER_STR) || IS_XTRA(victim, XTRA_BETTER_DEX) ||
+            IS_XTRA(victim, XTRA_BETTER_CON) || IS_XTRA(victim, XTRA_BETTER_INT) ||
+            IS_XTRA(victim, XTRA_BETTER_WIS))
+        {
+            send_to_char("They are already affected by better body.\n\r", ch);
+            return FALSE;
+        }
+    }
+    if (ch->mana < base_mana + correspondence * correspondence * 100 + quint * MANA_QUINT)
+    {
+        send_to_char("You don't have enough mana to cast that spell.\n\r", ch);
+        return FALSE;
+    }
+    return !mage_target_safe(ch, victim);
+}
 
 //Correspondence 4: Rift
 void do_rift( CHAR_DATA *ch, char *argument )
@@ -115,7 +213,7 @@ void do_rift( CHAR_DATA *ch, char *argument )
 
     if (arg2[0] == '\0') quintessence = 0;
 
-    quintessence = atoi ( arg2 );
+    if (!parse_quint(ch, arg2, &quintessence)) return;
 
     if (quintessence > ch->quint[BODY] && !IS_XTRA(ch, XTRA_HEARTS_BLOOD))
     {
@@ -206,7 +304,7 @@ void do_beginners_luck(CHAR_DATA* ch, char * argument)
 
     if (arg[0] == '\0') quintessence = 0;
 
-    quintessence = atoi ( arg );
+    if (!parse_quint(ch, arg, &quintessence)) return;
 
     if (quintessence > ch->quint[BODY] && !IS_XTRA(ch, XTRA_HEARTS_BLOOD))
     {
@@ -257,8 +355,6 @@ void do_brittle_bones(CHAR_DATA * ch, char * argument)
     char arg1[MIL];
     char arg2[MIL];
     long dam, power, quint, sn, correspondence;
-    ROOM_INDEX_DATA *location;
-    ROOM_INDEX_DATA *to_room;
 
     dam = 0;
     quint = 0;
@@ -278,11 +374,13 @@ void do_brittle_bones(CHAR_DATA * ch, char * argument)
     }
 
 
+    victim = ch->fighting != NULL ? ch->fighting : get_char_world(ch, arg1);
+    if (!mage_target_ready(ch, victim, arg2, MANA_BRITTLE_BONES, FALSE, FALSE, NULL)) return;
     power = spellpower(ch, 3);
 
     if (arg2[0] != '\0')
     {
-        quint = atoi( arg2 );
+        if (!parse_quint(ch, arg2, &quint)) return;
 
         if (quint > ch->quint[BODY] && !IS_XTRA(ch, XTRA_HEARTS_BLOOD))
         {
@@ -331,16 +429,6 @@ void do_brittle_bones(CHAR_DATA * ch, char * argument)
 
     ch->mana -= MANA_BRITTLE_BONES + (correspondence * correspondence * 100) + (quint * MANA_QUINT);
 
-    to_room =  victim->in_room;
-    location = ch->in_room;
-
-    char_from_room(ch);
-    char_to_room(ch, to_room);
-
-    if (is_safe(ch,victim)) return;
-
-    char_from_room(ch);
-    char_to_room(ch, location);
 
     if (!IS_NPC(victim) && victim->pcdata->atm >= number_percent())
     {
@@ -377,8 +465,6 @@ void do_mutate_ephemera(CHAR_DATA* ch, char * argument)
 char arg1[MAX_STRING_LENGTH], arg2[MAX_STRING_LENGTH];
     CHAR_DATA * victim;
     long dam, power, quint, correspondence;
-    ROOM_INDEX_DATA *location;
-    ROOM_INDEX_DATA *to_room;
 
     dam = 0;
     quint = 0;
@@ -397,11 +483,13 @@ char arg1[MAX_STRING_LENGTH], arg2[MAX_STRING_LENGTH];
         return;
     }
 
+    victim = ch->fighting != NULL ? ch->fighting : get_char_world(ch, arg1);
+    if (!mage_target_ready(ch, victim, arg2, MANA_MUTATE_EPHEMERA, FALSE, FALSE, NULL)) return;
     power = spellpower(ch, 5);
 
     if (arg2[0] != '\0')
     {
-        quint = atoi( arg2 );
+        if (!parse_quint(ch, arg2, &quint)) return;
 
     if (quint > ch->quint[BODY] && !IS_XTRA(ch, XTRA_HEARTS_BLOOD))
     {
@@ -457,16 +545,6 @@ char arg1[MAX_STRING_LENGTH], arg2[MAX_STRING_LENGTH];
 
     ch->mana -= MANA_MUTATE_EPHEMERA + (correspondence * correspondence * 100) + (quint * MANA_QUINT);
 
-    to_room =  victim->in_room;
-    location = ch->in_room;
-
-    char_from_room(ch);
-    char_to_room(ch, to_room);
-
-    if (is_safe(ch,victim)) return;
-
-    char_from_room(ch);
-    char_to_room(ch, location);
 
     if (!IS_NPC(victim) && victim->pcdata->atm >= number_percent())
     {
@@ -822,8 +900,6 @@ void do_alterweight( CHAR_DATA *ch, char * argument)
     CHAR_DATA * victim;
     AFFECT_DATA af;
     long dam, power, quint, sn, correspondence;
-    ROOM_INDEX_DATA *location;
-    ROOM_INDEX_DATA *to_room;
 
     dam = 0;
     quint = 0;
@@ -842,11 +918,13 @@ void do_alterweight( CHAR_DATA *ch, char * argument)
         return;
     }
 
+    victim = ch->fighting != NULL ? ch->fighting : get_char_world(ch, arg1);
+    if (!mage_target_ready(ch, victim, arg2, MANA_ALTER_WEIGHT, FALSE, FALSE, NULL)) return;
     power = spellpower(ch, 5);
 
     if (arg2[0] != '\0')
     {
-        quint = atoi( arg2 );
+        if (!parse_quint(ch, arg2, &quint)) return;
 
     if (quint > ch->quint[BODY] && !IS_XTRA(ch, XTRA_HEARTS_BLOOD))
     {
@@ -900,16 +978,6 @@ void do_alterweight( CHAR_DATA *ch, char * argument)
 
     ch->mana -= MANA_ALTER_WEIGHT + (correspondence * correspondence * 100) + (quint * MANA_QUINT);
 
-    to_room =  victim->in_room;
-    location = ch->in_room;
-
-    char_from_room(ch);
-    char_to_room(ch, to_room);
-
-    if (is_safe(ch,victim)) return;
-
-    char_from_room(ch);
-    char_to_room(ch, location);
 
     if ((!IS_NPC(victim) && correspondence == 5) || (IS_NPC(victim) && victim->level > 800))
     {
@@ -985,7 +1053,7 @@ void do_mage_invis( CHAR_DATA *ch, char * argument)
 
     if (arg[0] == '\0') quintessence = 0;
     else
-    quintessence = atoi ( arg );
+    if (!parse_quint(ch, arg, &quintessence)) return;
 
     if (quintessence > ch->quint[BODY] && !IS_XTRA(ch, XTRA_HEARTS_BLOOD))
     {
@@ -1147,7 +1215,7 @@ void do_step_sideways(CHAR_DATA* ch, char * argument)
 
     if (arg[0] != '\0')
     {
-        quint = atoi( arg );
+        if (!parse_quint(ch, arg, &quint)) return;
 
     if (quint > ch->quint[BODY] && !IS_XTRA(ch, XTRA_HEARTS_BLOOD))
     {
@@ -1240,7 +1308,7 @@ void do_break_dreamshell(CHAR_DATA* ch, char * argument)
 
     if (arg[0] != '\0')
     {
-        quint = atoi( arg );
+        if (!parse_quint(ch, arg, &quint)) return;
 
     if (quint > ch->quint[BODY] && !IS_XTRA(ch, XTRA_HEARTS_BLOOD))
     {
@@ -1529,7 +1597,7 @@ void do_paradox_ward(CHAR_DATA *ch, char * argument)
 	return;
     }
 
-    quintessence = atoi ( arg );
+    if (!parse_quint(ch, arg, &quintessence)) return;
 
     if (quintessence < 1)
     {
@@ -1748,8 +1816,6 @@ void do_mage_heal(CHAR_DATA *ch, char*argument)
     char arg [MAX_INPUT_LENGTH], arg2[MAX_INPUT_LENGTH], buf1[MAX_STRING_LENGTH], buf2[MAX_STRING_LENGTH], buf3[MAX_STRING_LENGTH];
     CHAR_DATA *victim;
     long healing, power, loop, quint, correspondence;
-    ROOM_INDEX_DATA *location;
-    ROOM_INDEX_DATA *to_room;
 
     argument = one_argument(argument, arg);
     argument = one_argument(argument, arg2);
@@ -1791,11 +1857,12 @@ void do_mage_heal(CHAR_DATA *ch, char*argument)
 	return;
     }
 
+    if (!mage_target_ready(ch, victim, arg2, MANA_MAGE_HEAL, FALSE, FALSE, NULL)) return;
     power = spellpower(ch, 2);//healing uses a lvl 2 sphere
 
     power -= correspondence;
 
-    quint = atoi(arg2);
+    if (!parse_quint(ch, arg2, &quint)) return;
 
     if (quint > ch->quint[BODY] && !IS_XTRA(ch, XTRA_HEARTS_BLOOD))
     {
@@ -1824,16 +1891,6 @@ void do_mage_heal(CHAR_DATA *ch, char*argument)
     ch->mana -= MANA_MAGE_HEAL + (correspondence * correspondence * 100) + (quint * MANA_QUINT);
     ch->quint[1] -= quint;
 
-    to_room =  victim->in_room;
-    location = ch->in_room;
-
-    char_from_room(ch);
-    char_to_room(ch, to_room);
-
-    if (is_safe(ch,victim)) return;
-
-    char_from_room(ch);
-    char_to_room(ch, location);
 
     for (loop = 0; loop < power; loop++)
 	healing += number_range(600, 1200);
@@ -1862,8 +1919,6 @@ void do_better_body(CHAR_DATA *ch, char *argument)
     CHAR_DATA* victim;
     char arg1[MAX_STRING_LENGTH], arg2[MAX_STRING_LENGTH], arg3[MAX_STRING_LENGTH], buf[MAX_STRING_LENGTH];
     long quint, power, correspondence;
-    ROOM_INDEX_DATA *location;
-    ROOM_INDEX_DATA *to_room;
 
     argument = one_argument(argument, arg1);
     argument = one_argument(argument, arg2);
@@ -1883,12 +1938,14 @@ void do_better_body(CHAR_DATA *ch, char *argument)
         return;
     }
 
+    victim = get_char_world(ch, arg1);
+    if (!mage_target_ready(ch, victim, arg3, MANA_BETTER_BODY, FALSE, FALSE, arg2)) return;
     power = spellpower(ch, 3);
 
 
     if (arg3[0] != '\0')
     {
-        quint = atoi( arg3 );
+        if (!parse_quint(ch, arg3, &quint)) return;
 
     if (quint > ch->quint[BODY] && !IS_XTRA(ch, XTRA_HEARTS_BLOOD))
     {
@@ -1940,16 +1997,6 @@ void do_better_body(CHAR_DATA *ch, char *argument)
     power -= correspondence;
     power += 2; //counter local correspondence cost
 
-    to_room =  victim->in_room;
-    location = ch->in_room;
-
-    char_from_room(ch);
-    char_to_room(ch, to_room);
-
-    if (is_safe(ch,victim)) return;
-
-    char_from_room(ch);
-    char_to_room(ch, location);
 
     if (ch->mana < MANA_BETTER_BODY + (correspondence * correspondence * 100) + (quint * MANA_QUINT))
     {
@@ -1993,8 +2040,6 @@ void do_polymorph_other(CHAR_DATA *ch, char *argument)
     CHAR_DATA * victim;
     OBJ_DATA* obj;
     long power, quint, correspondence;
-    ROOM_INDEX_DATA *location;
-    ROOM_INDEX_DATA *to_room;
 
     argument = one_argument(argument, arg1);
     argument = one_argument(argument, arg2);
@@ -2013,11 +2058,13 @@ void do_polymorph_other(CHAR_DATA *ch, char *argument)
         return;
     }
 
+    victim = ch->fighting != NULL ? ch->fighting : get_char_world(ch, arg1);
+    if (!mage_target_ready(ch, victim, arg2, MANA_POLYMORPH_OTHER, TRUE, FALSE, NULL)) return;
     power = spellpower(ch, 5);
 
     if (arg2[0] != '\0')
     {
-        quint = atoi( arg2 );
+        if (!parse_quint(ch, arg2, &quint)) return;
 
     if (quint > ch->quint[BODY] && !IS_XTRA(ch, XTRA_HEARTS_BLOOD))
     {
@@ -2083,16 +2130,6 @@ void do_polymorph_other(CHAR_DATA *ch, char *argument)
 
     ch->mana -= MANA_POLYMORPH_OTHER + (correspondence * correspondence * 100) + (quint * MANA_QUINT);
 
-    to_room =  victim->in_room;
-    location = ch->in_room;
-
-    char_from_room(ch);
-    char_to_room(ch, to_room);
-
-    if (is_safe(ch,victim)) return;
-
-    char_from_room(ch);
-    char_to_room(ch, location);
 
     do_stance(victim, ""); //can't stance while in polymorph
 
@@ -2230,7 +2267,7 @@ void do_friction_curse(CHAR_DATA *ch, char *argument)
 
     power = spellpower(ch, 3) - correspondence;
 
-            quint = atoi( arg2 );
+            if (!parse_quint(ch, arg2, &quint)) return;
 
     if (quint > ch->quint[BODY] && !IS_XTRA(ch, XTRA_HEARTS_BLOOD))
     {
@@ -2325,8 +2362,6 @@ void do_electrical_chaos( CHAR_DATA *ch, char *argument)
     char arg1[MAX_STRING_LENGTH], arg2[MAX_STRING_LENGTH],  buf1[MAX_STRING_LENGTH], buf2[MAX_STRING_LENGTH],buf3[MAX_STRING_LENGTH];
     CHAR_DATA * victim;
     long dam, power, quint, correspondence;
-    ROOM_INDEX_DATA *location;
-    ROOM_INDEX_DATA *to_room;
 
     dam = 0;
     quint = 0;
@@ -2345,11 +2380,14 @@ void do_electrical_chaos( CHAR_DATA *ch, char *argument)
         return;
     }
 
+    if (arg1[0] == '\0' && ch->fighting != NULL) victim = ch->fighting;
+    else if ((victim = get_char_room(ch, arg1)) == NULL) victim = get_char_world(ch, arg1);
+    if (!mage_target_ready(ch, victim, arg2, MANA_ELECTRICAL_CHAOS, FALSE, TRUE, NULL)) return;
     power = spellpower(ch, 2);
 
     if (arg2[0] != '\0')
     {
-        quint = atoi( arg2 );
+        if (!parse_quint(ch, arg2, &quint)) return;
 
     if (quint > ch->quint[BODY] && !IS_XTRA(ch, XTRA_HEARTS_BLOOD))
     {
@@ -2411,16 +2449,6 @@ void do_electrical_chaos( CHAR_DATA *ch, char *argument)
     ch->mana -= MANA_ELECTRICAL_CHAOS + (correspondence * correspondence * 100) + (quint * MANA_QUINT);
     ch->quint[1] -= quint;
 
-    to_room =  victim->in_room;
-    location = ch->in_room;
-
-    char_from_room(ch);
-    char_to_room(ch, to_room);
-
-    if (is_safe(ch,victim)) return;
-
-    char_from_room(ch);
-    char_to_room(ch, location);
 
     if ((!IS_NPC(victim) && correspondence == 5) || (IS_NPC(victim) && victim->level > 800 && correspondence == 5))
     {
@@ -2467,7 +2495,7 @@ void do_inferno( CHAR_DATA *ch, char *argument)
     quint = 0;
     argument = one_argument(argument, arg1);
 
-    if (arg1[0] != '\0') quint = atoi(arg1);
+    if (!parse_quint(ch, arg1, &quint)) return;
 
     if (!IS_MAGE(ch))
     {
@@ -2489,7 +2517,8 @@ void do_inferno( CHAR_DATA *ch, char *argument)
 
 
     power = spellpower(ch, 5);
-    if (power > 0) botch = FALSE;
+    /* spellpower clamps failures to zero; only positive rolls get the floor. */
+    botch = (power <= 0);
 
     if (arg1[0] != '\0')
     {

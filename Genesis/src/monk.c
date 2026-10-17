@@ -751,7 +751,7 @@ void do_almighty( CHAR_DATA *ch, char *argument )
     CHAR_DATA *victim;
     CHAR_DATA *vch;
     char arg[MIL];
-    bool any_affected;
+    bool any_affected = FALSE;
 
     argument = one_argument(argument, arg);
 

@@ -2,7 +2,7 @@ CC ?= cc
 LDLIBS ?= -lcrypt
 TEST_FLAGS = -std=gnu17 -O1 -g -ffunction-sections -fdata-sections
 TEST_LDFLAGS = -Wl,--gc-sections
-TESTS = tests/test_comm tests/test_db tests/test_gameplay tests/test_buffers tests/test_save tests/test_signals
+TESTS = tests/test_comm tests/test_db tests/test_gameplay tests/test_buffers tests/test_save tests/test_signals tests/test_classes tests/test_powers tests/test_wall tests/test_mage_powers
 
 .PHONY: all test sanitize clean
 all:
@@ -20,6 +20,12 @@ tests/test_buffers: tests/test_buffers.c $(wildcard Genesis/src/*.c Genesis/src/
 
 tests/test_signals: tests/test_signals.c $(wildcard Genesis/src/*.c Genesis/src/*.h)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_FLAGS) $< Genesis/src/signals.c $(LDFLAGS) $(TEST_LDFLAGS) $(LDLIBS) -o $@
+
+tests/test_classes tests/test_wall tests/test_mage_powers: tests/%: tests/%.c $(wildcard Genesis/src/*.c Genesis/src/*.h)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_FLAGS) -O0 $< $(LDFLAGS) $(TEST_LDFLAGS) $(LDLIBS) -o $@
+
+tests/test_powers: tests/test_powers.c $(wildcard Genesis/src/*.c Genesis/src/*.h)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_FLAGS) $< Genesis/src/ninja.c Genesis/src/monk.c Genesis/src/elemental.c Genesis/src/sorcerer.c Genesis/src/drow.c $(LDFLAGS) $(TEST_LDFLAGS) $(LDLIBS) -o $@
 
 test: $(TESTS)
 	@set -e; for t in $(TESTS); do ./$$t; done

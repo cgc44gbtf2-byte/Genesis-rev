@@ -5180,6 +5180,14 @@ void do_autoclass( CHAR_DATA *ch, char *argument )
 {
     char arg1[MSL];
     char arg2[MSL];
+    const char *clan = NULL;
+
+    if (IS_NPC(ch)) return;
+    if (ch->pcdata == NULL)
+    {
+stc("Your player data is unavailable; please contact an immortal.\n\r", ch);
+return;
+    }
 
     argument = one_argument(argument, arg1);
     argument = one_argument(argument, arg2);
@@ -5204,9 +5212,9 @@ void do_autoclass( CHAR_DATA *ch, char *argument )
 	stc("Clans:\n\r", ch);
 	stc("Dragon:  #oBronze#n, #RRed#n, #LBlue#n, #7Silver#n, #yGold#n, #0Black#n.\n\r", ch);
 	stc("#rVampire#n:\n\r", ch);
-	stc("   Camarilla:   Ventrue, Nosferatu, Brujah, Malkavian\n\r", ch);
+stc("   Camarilla:   Ventrue, Nosferatu, Brujah\n\r", ch);
 	stc("   Sabbat:      Serpentsofthelight, Lasombra, Tzimisce \n\r", ch);
-	stc("   Independent: Assamite, Gangrel Ravnos\n\r", ch);
+stc("   Independent: Assamite, Gangrel, Ravnos\n\r", ch);
 	stc("#pMage#n: Akashic, Celestial, Ecstasy, Dreamspeakers, Euthanatos, Hermes, Ether, Verbena, Virtual, Hollow\n\r", ch);
 
 	return;
@@ -5223,28 +5231,28 @@ void do_autoclass( CHAR_DATA *ch, char *argument )
 
 	if (!str_cmp(arg2, "ventrue"))
 	{
-	    ch->clan = "Ventrue";
+    clan = "Ventrue";
 	    ch->pcdata->cland[0] = DISC_DOMINATE;
 	    ch->pcdata->cland[1] = DISC_FORTITUDE;
 	    ch->pcdata->cland[2] = DISC_PRESENCE;
 	}
 	else if (!str_cmp(arg2, "nosferatu"))
 	{
-	    ch->clan = "Nosferatu";
+    clan = "Nosferatu";
 	    ch->pcdata->cland[0] = DISC_ANIMALISM;
 	    ch->pcdata->cland[1] = DISC_OBFUSCATE;
 	    ch->pcdata->cland[2] = DISC_POTENCE;
 	}
 	else if (!str_cmp(arg2, "brujah"))
 	{
-	    ch->clan = "Brujah";
+    clan = "Brujah";
 	    ch->pcdata->cland[0] = DISC_CELERITY;
 	    ch->pcdata->cland[1] = DISC_POTENCE;
 	    ch->pcdata->cland[2] = DISC_PRESENCE;
 	}
 	else if (!str_cmp(arg2, "assamite"))
 	{
-	    ch->clan = "Assamite";
+    clan = "Assamite";
 	    ch->pcdata->cland[0] = DISC_CELERITY;
 	    ch->pcdata->cland[1] = DISC_OBFUSCATE;
 	    ch->pcdata->cland[2] = DISC_QUIETUS;
@@ -5252,7 +5260,7 @@ void do_autoclass( CHAR_DATA *ch, char *argument )
 	}
 	else if (!str_cmp(arg2, "gangrel"))
 	{
-	    ch->clan = "Gangrel";
+    clan = "Gangrel";
 	    ch->pcdata->cland[0] = DISC_ANIMALISM;
 	    ch->pcdata->cland[1] = DISC_FORTITUDE;
 	    ch->pcdata->cland[2] = DISC_PROTEAN;
@@ -5260,7 +5268,7 @@ void do_autoclass( CHAR_DATA *ch, char *argument )
 	}
 	else if (!str_cmp(arg2, "serpentsofthelight"))
 	{
-	    ch->clan = "Serpents of the Light";
+    clan = "Serpents of the Light";
 	    ch->pcdata->cland[0] = DISC_OBFUSCATE;
 	    ch->pcdata->cland[1] = DISC_PRESENCE;
 	    ch->pcdata->cland[2] = DISC_SERPENTIS;
@@ -5268,7 +5276,7 @@ void do_autoclass( CHAR_DATA *ch, char *argument )
 	}
 	else if (!str_cmp(arg2, "lasombra"))
 	{
-	    ch->clan = "Lasombra";
+    clan = "Lasombra";
 	    ch->pcdata->cland[0] = DISC_DOMINATE;
 	    ch->pcdata->cland[1] = DISC_OBTENEBRATION;
 	    ch->pcdata->cland[2] = DISC_POTENCE;
@@ -5276,7 +5284,7 @@ void do_autoclass( CHAR_DATA *ch, char *argument )
 	}
 	else if (!str_cmp(arg2, "tzimisce"))
 	{
-	    ch->clan = "Tzimisce";
+    clan = "Tzimisce";
 	    ch->pcdata->cland[0] = DISC_AUSPEX;
 	    ch->pcdata->cland[1] = DISC_ANIMALISM;
 	    ch->pcdata->cland[2] = DISC_VICISSITUDE;
@@ -5284,7 +5292,7 @@ void do_autoclass( CHAR_DATA *ch, char *argument )
 	}
 	else if (!str_cmp(arg2, "ravnos"))
 	{
-	    ch->clan = "Ravnos";
+    clan = "Ravnos";
 	    ch->pcdata->cland[0] = DISC_FORTITUDE;
             ch->pcdata->cland[1] = DISC_ANIMALISM;
             ch->pcdata->cland[2] = DISC_CHIMERSTRY;
@@ -5296,7 +5304,9 @@ void do_autoclass( CHAR_DATA *ch, char *argument )
 	    return;
 	}
 
-	ch->class = CLASS_VAMPIRE;
+free_string(ch->clan);
+ch->clan = str_dup(clan);
+ch->class = CLASS_VAMPIRE;
 	ch->vampgen = 9;
 	update_gen(ch);
 	ch->pcdata->powers[DISC_ANIMALISM] = -1;
@@ -5438,57 +5448,57 @@ void do_autoclass( CHAR_DATA *ch, char *argument )
 
  	if (!str_cmp(arg2, "akashic"))
         {
-            ch->clan = "Akashic Brotherhood";
+            clan = "Akashic Brotherhood";
             ch->pcdata->cland[0] = SPHERE_MIND;
         }
 	else if (!str_cmp(arg2, "celestial"))
         {
-            ch->clan = "Celestial Chorus";
+            clan = "Celestial Chorus";
             ch->pcdata->cland[0] = SPHERE_PRIME;
 
         }
 	else if (!str_cmp(arg2, "ecstasy"))
         {
-            ch->clan = "Cult of Ecstasy";
+            clan = "Cult of Ecstasy";
             ch->pcdata->cland[0] = SPHERE_TIME;
 
         }
 	else if (!str_cmp(arg2, "dreamspeakers"))
         {
-            ch->clan = "Dreamspeakers";
+            clan = "Dreamspeakers";
             ch->pcdata->cland[0] = SPHERE_SPIRIT;
 
         }
 	else if (!str_cmp(arg2, "euthanatos"))
         {
-            ch->clan = "Euthanatos";
+            clan = "Euthanatos";
             ch->pcdata->cland[0] = SPHERE_ENTROPY;
 
         }
 	else if (!str_cmp(arg2, "hermes"))
         {
-            ch->clan = "Order of Hermes";
+            clan = "Order of Hermes";
             ch->pcdata->cland[0] = SPHERE_FORCES;
 
         }
 	else if (!str_cmp(arg2, "ether"))
         {
-            ch->clan = "Sons of Ether";
+            clan = "Sons of Ether";
             ch->pcdata->cland[0] = SPHERE_MATTER;
         }
 	else if (!str_cmp(arg2, "verbena"))
         {
-            ch->clan = "Verbena";
+            clan = "Verbena";
             ch->pcdata->cland[0] = SPHERE_LIFE;
         }
 	else if (!str_cmp(arg2, "virtual"))
         {
-            ch->clan = "Virtual Adepts";
+            clan = "Virtual Adepts";
             ch->pcdata->cland[0] = SPHERE_CORRESPONDENCE;
         }
 	else if (!str_cmp(arg2, "hollow"))
         {
-            ch->clan = "Hollow Ones";
+            clan = "Hollow Ones";
             ch->pcdata->cland[0] = -1;
         }
 	else 
@@ -5496,7 +5506,9 @@ void do_autoclass( CHAR_DATA *ch, char *argument )
 	    do_autoclass(ch, "");
 	    return;
 	}
-	ch->class = CLASS_MAGE;
+free_string(ch->clan);
+ch->clan = str_dup(clan);
+ch->class = CLASS_MAGE;
 	ch->pcdata->cland[1] = -1;
         ch->pcdata->cland[2] = -1;
 	ch->arete = 1;

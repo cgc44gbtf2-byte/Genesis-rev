@@ -564,7 +564,7 @@ void do_skipdisc( CHAR_DATA *ch, char *argument )
 	return;
     }
 
-    if (IS_ITEMAFF(ch, AFF_FLYING))
+    if (IS_AFFECTED(ch, AFF_FLYING))
     {
 	stc("You leap off your skip disc.\n\r", ch);
 	REMOVE_BIT(ch->affected_by, AFF_FLYING);

@@ -854,7 +854,7 @@ void do_localquake( CHAR_DATA *ch, char *argument ) {
 	dam = number_range(1,500)+(earthlevel*(earthlevel))*10;
 	if (!IS_NPC(victim) && (victim->pcdata->atm > 0))
 	   dam = (dam*(100-victim->pcdata->atm)/100);
-	if (!IS_ITEMAFF(ch,AFF_FLYING))
+if (!IS_AFFECTED(victim,AFF_FLYING))
 	{
 	   if (dam >= 0  && dam <= 300)
 	   {
@@ -1170,7 +1170,7 @@ void do_ultimawave( CHAR_DATA *ch, char *argument ) {
     	char arg[MAX_INPUT_LENGTH];
     	CHAR_DATA *victim;
     	CHAR_DATA *victim_next;
-    	int damage;
+    int damage, base_damage;
 	int blah;
     	char buf[MAX_INPUT_LENGTH];
     	one_argument( argument, arg );
@@ -1194,7 +1194,7 @@ void do_ultimawave( CHAR_DATA *ch, char *argument ) {
            send_to_char("You cannot concentrate enough to do this attack again! Try later!\n\r",ch);
            return;
     	}
-    	damage = ch->mana*4/10;
+    base_damage = ch->mana*4/10;
 	blah = ch->mana*3/1000;
 
     	ch->mana = 0;
@@ -1211,8 +1211,9 @@ void do_ultimawave( CHAR_DATA *ch, char *argument ) {
 	    if (!CAN_PK(victim)) continue;
 	    if (!hurt_fighting(ch, victim)) continue;
 
+    damage = base_damage;
 	    if (!IS_NPC(victim) && (victim->pcdata->atm > 0))
-		damage *= (100 - victim->pcdata->atm) / 100;
+damage = damage * (100 - victim->pcdata->atm) / 100;
 	    sprintf(buf, "$n's body is battered by the mental energy! [#g%i#n]", damage);
 	    act(buf,victim, NULL, NULL, TO_ROOM);
 	    sprintf(buf, "You are bruised and battered by the blast of mental energy! [#r%i#n]", damage);

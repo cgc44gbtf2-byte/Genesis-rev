@@ -724,6 +724,7 @@ void adv_spell_damage( CHAR_DATA *ch, OBJ_DATA *book, OBJ_DATA *page, char *argu
 
 	for (vch = ch->in_room->people; vch != NULL; vch = vch_next)
 	{
+    int victim_dam = dam;
 	    vch_next = vch->next_in_room;
 	    if (vch->in_room != ch->in_room) continue;
 	    if (IS_BUI(vch)) continue;
@@ -745,18 +746,18 @@ void adv_spell_damage( CHAR_DATA *ch, OBJ_DATA *book, OBJ_DATA *page, char *argu
 	    {
 		if (!hurt_fighting(ch, vch)) continue;
 		if (!IS_NPC(vch) && vch->pcdata->atm > 0)
-		    dam *= (100 - vch->pcdata->atm) * .01;
+    victim_dam *= (100 - vch->pcdata->atm) * .01;
 		if (!IS_NPC(vch) && vch->pcdata->atm >= 100)
 		    act("$n's spell is unable to penetrate your antimagic shield.", vch, NULL, NULL, TO_VICT);
 		else
 		{
-		    sprintf(buf, "Your %s strikes $N incredibly hard! [#g%i#n]", page->chpoweroff, dam);
+    sprintf(buf, "Your %s strikes $N incredibly hard! [#g%i#n]", page->chpoweroff, victim_dam);
 		    act2(buf, ch, NULL, vch, TO_CHAR);
-		    sprintf(buf, "$n's %s strikes $N incredibly hard! [#0%i#n]", page->chpoweroff, dam);
+    sprintf(buf, "$n's %s strikes $N incredibly hard! [#0%i#n]", page->chpoweroff, victim_dam);
 		    act2(buf, ch, NULL, vch, TO_NOTVICT);
-		    sprintf(buf, "$n's %s strikes you incredibly hard! [#r%i#n]", page->chpoweroff, dam);
+    sprintf(buf, "$n's %s strikes you incredibly hard! [#r%i#n]", page->chpoweroff, victim_dam);
 		    act2(buf, ch, NULL, vch, TO_VICT);
-		    hurt_person(ch, vch, dam);
+    hurt_person(ch, vch, victim_dam);
 		}
 	    }
 	}

@@ -428,13 +428,13 @@ void do_wallgranite( CHAR_DATA *ch, char *argument )
 	case DIR_DOWN:  strcpy(arg,"down");  break;
     }
 
-    if ( ( pexit = ch->in_room->exit[direction] ) == NULL )
+    if ( ( location = ch->in_room ) == NULL )
     {
 	send_to_char("Nothing happens.\n\r",ch);
 	return;
     }
 
-    if ( ( location = ch->in_room ) == NULL )
+    if ( ( pexit = location->exit[direction] ) == NULL )
     {
 	send_to_char("Nothing happens.\n\r",ch);
 	return;
@@ -484,14 +484,15 @@ void do_wallgranite( CHAR_DATA *ch, char *argument )
 
     if (location == to_room) return;
 
-    char_from_room(ch);
-    char_to_room(ch, to_room);
-
-    if ( ( pexit = ch->in_room->exit[rev] ) == NULL ) return;
+    if ( ( pexit = to_room->exit[rev] ) == NULL ) return;
+    if (pexit->to_room != location) return;
     if (IS_SET(pexit->exit_info, EX_WALL_WATER) || 
 	IS_SET(pexit->exit_info, EX_WALL_GRANITE) || 
 	IS_SET(pexit->exit_info, EX_WALL_WIND) || 
 	IS_SET(pexit->exit_info, EX_WALL_FLAME)) return;
+
+    char_from_room(ch);
+    char_to_room(ch, to_room);
 
     switch (rev)
     {

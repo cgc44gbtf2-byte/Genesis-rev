@@ -350,7 +350,7 @@ void do_bomuzite( CHAR_DATA *ch, char *argument )
 	return;
     }
 
-    if (is_safe(ch, victim));
+    if (is_safe(ch, victim)) return;
 
     if (ch->pcdata->ninja[NINJA_KI] < 20)
     {

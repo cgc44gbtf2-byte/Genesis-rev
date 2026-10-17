@@ -89,7 +89,7 @@ on all interfaces by default; restrict access with the host firewall.
 
 ## Verification and remaining scope
 
-Six isolated regression suites cover network/authentication, data readers,
+Ten isolated regression suites cover network/authentication, data readers,
 editor/command buffer boundaries, atomic player saves and signal handling,
 and gameplay fixes. Normal and ASan/UBSan suites passed locally. The complete
 server compiled and booted with original area/help data in an isolated
@@ -157,7 +157,25 @@ See [Debian/Ubuntu installation](deploy/INSTALL.md) and the reviewed
 account, a root-owned read-only executable and restricted writable data
 directories. No service is installed or enabled by this repository.
 
-CI validates the unit without starting systemd, runs six normal/sanitizer
+CI validates the unit without starting systemd, runs ten normal/sanitizer
 suites, and boots an isolated world then verifies a clean SIGTERM exit.
 Unit validation does not prove the sandbox or service operates correctly
 on every host; follow the installation guide's host-level checks.
+
+## Class-selection and power audit
+
+Class acquisition tests exercise all ten classes, raw-stat thresholds,
+supported vampire/mage/dragon specializations and owned clan strings.
+Malkavian was advertised without any implemented discipline mapping; it is
+now omitted rather than assigned invented powers.
+
+Power regressions cover Ninja bomb safety, Monk group-blessing initialization,
+Drow flight toggling, Elementalist flying-target immunity and independent
+per-target area damage, Sorcerer area-damage isolation, and Werewolf granite
+walls on one-way, blocked and mismatched exits. Mage spells reject malformed,
+negative or excessive quintessence, restore the caster after remote safety
+checks, and validate covered deterministic targeting failures before payment.
+Inferno initializes its botch state for nonpositive spell power.
+
+This is a targeted correctness pass, not a full balance or ability audit.
+Explicitly disabled powers and ambiguous design choices remain unchanged.

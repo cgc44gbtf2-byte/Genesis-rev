@@ -7,6 +7,10 @@ tests/test_gameplay
 tests/test_buffers
 tests/test_save
 tests/test_signals
+tests/test_classes
+tests/test_powers
+tests/test_wall
+tests/test_mage_powers
 Genesis/player/
 Genesis/backup/
 Genesis/log/
