@@ -2637,6 +2637,13 @@
       long cmd;
       long trust;
       bool found;
+
+      if (ch == NULL) return;
+      if (IS_COMBAT_PAUSED(ch))
+      {
+         send_to_char("You are still recovering from a combat interruption.\n\r", ch);
+         return;
+      }
    
       {
          char *rest = one_argument(argument, arg);

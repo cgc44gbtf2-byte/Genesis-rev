@@ -581,6 +581,8 @@ void game_loop_mac_msdos( void )
     {
 	DESCRIPTOR_DATA *d;
 
+        combat_status_update();
+
 	/*
 	 * Process input.
 	 */
@@ -611,6 +613,9 @@ void game_loop_mac_msdos( void )
 		if (d->character->wait < 0) d->character->wait = 0;
 		continue;
 	    }
+
+            if (d->character != NULL && IS_COMBAT_PAUSED(d->character))
+                continue;
 
 	    read_from_buffer( d );
 	    if ( d->incomm[0] != '\0' )
@@ -802,6 +807,8 @@ void game_loop_unix( int control )
 	DESCRIPTOR_DATA *d;
 	long maxdesc;
 
+        combat_status_update();
+
 #if defined(MALLOC_DEBUG)
 	if ( malloc_verify( ) != 1 )
 	    abort( );
@@ -887,6 +894,9 @@ void game_loop_unix( int control )
                 if (d->character->wait < 0) d->character->wait = 0;
 		continue;
 	    }
+
+            if (d->character != NULL && IS_COMBAT_PAUSED(d->character))
+                continue;
 
 	    read_from_buffer( d );
 	    if ( d->incomm[0] != '\0' )

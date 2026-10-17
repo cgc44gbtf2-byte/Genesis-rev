@@ -157,7 +157,7 @@ See [Debian/Ubuntu installation](deploy/INSTALL.md) and the reviewed
 account, a root-owned read-only executable and restricted writable data
 directories. No service is installed or enabled by this repository.
 
-CI validates the unit without starting systemd, runs ten normal/sanitizer
+CI validates the unit without starting systemd, runs eleven normal/sanitizer
 suites, and boots an isolated world then verifies a clean SIGTERM exit.
 Unit validation does not prove the sandbox or service operates correctly
 on every host; follow the installation guide's host-level checks.
@@ -178,7 +178,8 @@ checks, and validate covered deterministic targeting failures before payment.
 Inferno initializes its botch state for nonpositive spell power.
 
 This is a targeted correctness pass, not a full balance or ability audit.
-Explicitly disabled powers and ambiguous design choices remain unchanged.
+Other explicitly disabled powers and ambiguous design choices remain unchanged;
+Stun Fist was subsequently restored with the safeguards described below.
 
 See [class catalog, costs, raw-stat caps and known gaps](deploy/CLASS_AUDIT.md)
 for the follow-up audit. The added Python catalog check detects duplicate
@@ -186,3 +187,19 @@ command registrations, missing command implementations and unresolved literal
 skill references; run `python3 tests/test_catalog.py` alongside `make test`.
 Follow-up regressions cover Healing Touch affordability, Ninja Vanish Ki,
 Werewolf ward dispatch, Mage listing thresholds and class stat caps/costs.
+
+### Guarded Stun Fist restoration
+
+Monk Technique 7 now enables `stunfist [target]` for 5,000 mana: about one
+second of action/attack interruption, two seconds of attacker recovery, and
+six seconds of per-target Stun Fist immunity measured from application.
+Invalid, protected and immune targets cost nothing. Explicit targets are
+honored; omitting the target uses the current opponent. Players and NPCs use
+the same transient timers; automatic attacks, commands and NPC special
+procedures respect them. Existing damage-over-time/world effects continue.
+This does not enable or rebalance other disabled control powers.
+
+An eleventh regression suite links the actual engine to test casting, combat,
+commands, NPC behavior and immunity with synthetic characters only. Test
+engine objects live separately from production objects, including under
+ASan/UBSan. See the class audit for timing, restart and balance limitations.

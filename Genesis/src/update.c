@@ -432,7 +432,9 @@ void mobile_update( void )
 	if (IS_AFFECTED(ch, AFF_CHARM) || IS_EXTRA(ch, EXTRA_ILLUSION) || ch->wizard != NULL) continue;
 
 	/* Examine call for special procedure */
-	if (ch->spec_fun != 0)
+if (IS_COMBAT_PAUSED(ch)) continue;
+
+if (ch->spec_fun != 0)
 	{
 	    if ((*ch->spec_fun) (ch)) continue;
 	    if (ch == NULL)  continue;
@@ -1147,6 +1149,7 @@ void obj_update( void )
             ch_next	= ch->next_in_room;
          
             if ( !IS_NPC(ch)
+               ||   IS_COMBAT_PAUSED(ch)
                ||   !IS_SET(ch->act, ACT_AGGRESSIVE)
                ||   is_safe(ch, wch)
                ||   ch->in_room != wch->in_room

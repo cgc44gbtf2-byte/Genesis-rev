@@ -8,6 +8,22 @@ SRC = pathlib.Path(__file__).resolve().parents[1] / "Genesis" / "src"
 
 
 class CatalogChecks(unittest.TestCase):
+    def test_stun_is_wired_into_all_action_paths(self):
+        comm = (SRC / "comm.c").read_text()
+        self.assertEqual(comm.count("combat_status_update();"), 2)
+        self.assertEqual(comm.count("IS_COMBAT_PAUSED(d->character)"), 2)
+        fight = (SRC / "fight.c").read_text()
+        for name in ("violence_update", "multi_hit", "one_hit"):
+            body = fight.split("void " + name + "(", 1)[1].split("\n}", 1)[0]
+            self.assertIn("IS_COMBAT_PAUSED(ch)", body)
+        interp = (SRC / "interp.c").read_text().split("void interpret(", 1)[1]
+        self.assertLess(interp.index("IS_COMBAT_PAUSED(ch)"),
+                        interp.index("one_argument("))
+        updates = (SRC / "update.c").read_text()
+        mobile = updates.split("void mobile_update(", 1)[1].split("void weather_update", 1)[0]
+        self.assertLess(mobile.index("IS_COMBAT_PAUSED(ch)"), mobile.index("(*ch->spec_fun)"))
+        self.assertIn("||   IS_COMBAT_PAUSED(ch)", updates)
+
     def test_commands_are_unique_and_implemented(self):
         table = (SRC / "interp.c").read_text().split("social_table")[0]
         commands = re.findall(r'\{\s*"([^"]+)"\s*,\s*(do_\w+)', table)

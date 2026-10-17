@@ -2,7 +2,8 @@ CC ?= cc
 LDLIBS ?= -lcrypt
 TEST_FLAGS = -std=gnu17 -O1 -g -ffunction-sections -fdata-sections
 TEST_LDFLAGS = -Wl,--gc-sections
-TESTS = tests/test_comm tests/test_db tests/test_gameplay tests/test_buffers tests/test_save tests/test_signals tests/test_classes tests/test_powers tests/test_wall tests/test_mage_powers
+TESTS = tests/test_comm tests/test_db tests/test_gameplay tests/test_buffers tests/test_save tests/test_signals tests/test_classes tests/test_powers tests/test_wall tests/test_mage_powers tests/test_combat_status
+ENGINE_OBJECTS = $(patsubst Genesis/src/%.c,tests/stun_engine/%.o,$(wildcard Genesis/src/*.c))
 
 .PHONY: all test sanitize clean
 all:
@@ -30,10 +31,24 @@ tests/test_powers: tests/test_powers.c $(wildcard Genesis/src/*.c Genesis/src/*.
 test: $(TESTS)
 	@set -e; for t in $(TESTS); do ./$$t; done
 
+# Link the real engine, including actual safety, combat and interpreter paths.
+# Only the server entry point is renamed; no real accounts/world files load.
+tests/test_combat_status: tests/test_combat_status.c $(ENGINE_OBJECTS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_FLAGS) $< $(ENGINE_OBJECTS) $(LDFLAGS) $(TEST_LDFLAGS) $(LDLIBS) -o $@
+
+# Separate test objects keep sanitizer flags out of the production executable.
+tests/stun_engine/%.o: Genesis/src/%.c $(wildcard Genesis/src/*.h)
+	mkdir -p tests/stun_engine
+	$(CC) $(CPPFLAGS) -DMERC $(CFLAGS) $(TEST_FLAGS) -c $< -o $@
+
+tests/stun_engine/comm.o: Genesis/src/comm.c $(wildcard Genesis/src/*.h)
+	mkdir -p tests/stun_engine
+	$(CC) $(CPPFLAGS) -DMERC $(CFLAGS) $(TEST_FLAGS) -Dmain=genesis_server_main -c $< -o $@
+
 sanitize:
 	$(MAKE) clean
 	$(MAKE) test CFLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" LDFLAGS="-fsanitize=address,undefined"
 
 clean:
 	$(MAKE) -C Genesis/src clean
-	rm -f $(TESTS) tests/buffers_interp.o
+	rm -f $(TESTS) tests/buffers_interp.o $(ENGINE_OBJECTS) tests/stun_comm.o

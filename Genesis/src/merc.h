@@ -140,6 +140,12 @@ typedef void SPELL_FUN	args( ( long sn, long level, CHAR_DATA *ch, void *vo ) );
 #define PULSE_TICK		(60 * PULSE_PER_SECOND)
 #define PULSE_AREA		(20 * PULSE_PER_SECOND)
 
+/* Stun Fist timings are server pulses, not descriptor command lag. */
+#define STUN_FIST_COST             5000
+#define STUN_FIST_DURATION         PULSE_PER_SECOND
+#define STUN_FIST_RECOVERY         (2 * PULSE_PER_SECOND)
+#define STUN_FIST_IMMUNITY         (6 * PULSE_PER_SECOND)
+
 /*
  * Site ban structure.
  */
@@ -1509,6 +1515,9 @@ struct	char_data
     time_t		save_time;
     long		timer;
     long		wait;
+    /* Transient combat state; never serialized into player saves. */
+    long                combat_pause;
+    long                stun_immunity;
     long		pkill;
     long		pdeath;
     long		mkill;
@@ -2016,6 +2025,7 @@ extern  long    gsn_brittle_bones;
 #define IS_OUTSIDE(ch)		(!IS_SET((ch)->in_room->room_flags, ROOM_INDOORS))
 
 #define WAIT_STATE(ch, npulse)	((ch)->wait = (UMAX((ch)->wait, npulse)))
+#define IS_COMBAT_PAUSED(ch)     ((ch)->combat_pause > 0)
 
 
 
@@ -3149,6 +3159,7 @@ void	reset_area      args( ( AREA_DATA * pArea ) );	/* OLC */
 extern LEADER_BOARD leader_board;
 
 /* fight.c */
+void    combat_status_update args( ( void ) );
 void	violence_update	args( ( void ) );
 void	multi_hit	args( ( CHAR_DATA *ch, CHAR_DATA *victim ) );
 long	get_speed	args( ( CHAR_DATA *ch ) );

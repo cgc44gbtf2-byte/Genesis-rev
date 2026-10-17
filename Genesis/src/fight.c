@@ -55,6 +55,8 @@ void violence_update( void )
     {
 	ch_next	= ch->next_fight;
 
+        if (IS_COMBAT_PAUSED(ch)) continue;
+
 	if ((victim = ch->fighting) == NULL || victim->in_room != ch->in_room)
 	{
 	    stop_fighting(ch, FALSE);
@@ -131,7 +133,7 @@ void multi_hit( CHAR_DATA *ch, CHAR_DATA *victim )
     OBJ_DATA *wield;
     long sn, dt, style = ch->style[0];
 
-    if (ch == NULL || victim == NULL) return;
+    if (ch == NULL || victim == NULL || IS_COMBAT_PAUSED(ch)) return;
     if (ch->position < POS_SLEEPING || is_safe(ch, victim)) return;
 
     if (IS_NPC(ch)) /* Temporary I swear */
@@ -356,6 +358,8 @@ void one_hit( CHAR_DATA *ch, CHAR_DATA *victim, long dt, char *message )
     OBJ_DATA *wield;
     long dam, max_dam;
     bool weap = TRUE;
+
+    if (ch == NULL || IS_COMBAT_PAUSED(ch)) return;
 
     /*
      * Can't beat a dead char!

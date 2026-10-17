@@ -74,8 +74,8 @@ values are regression-tested, not rebalanced. NPC and immortal caps differ.
 - **Malkavian:** no acquisition branch or discipline mapping found. Removed
   from class-selection advertising in the earlier pass; no replacement
   mechanics invented.
-- **Stun Fist:** explicitly disabled by an unconditional return in `monk.c`.
-  Kept disabled; training display now says so.
+- **Stun Fist:** restored in the subsequent guarded-restoration pass described
+  below. The historical six-second command-only delay was not re-enabled.
 - **Quicksand / Lycaon:** explicitly gutted in `wwtribe.c`. No speculative
   implementation or re-enablement.
 - **Teach discipline:** `do_teachdisc` in `clan.c` currently returns
@@ -97,3 +97,36 @@ C tests exercise actual stat caps/costs, Healing Touch affordability,
 Ninja Vanish Ki charging, Werewolf ward dispatch and Mage display thresholds,
 in addition to the earlier class/power tests. External gameplay helpers use
 synthetic fixtures/stubs; no real accounts are loaded.
+
+## Guarded Stun Fist restoration
+
+`stunfist [target]` requires Monk Technique 7 and 5,000 mana. A named target
+is honored even during another fight; without a name it uses the current
+opponent. It establishes combat through the existing safety/combat helpers.
+Self, missing, sleeping/incapacitated, protected, charm-master and temporarily
+immune targets are rejected without spending mana or applying recovery.
+
+At the configured four pulses per second, the target's actions and attacks
+pause for four pulses (about one second); the Monk recovers for eight pulses
+(about two seconds). The target gains 24 pulses (about six seconds, measured
+from application) of immunity to **Stun Fist**, shared across all attackers.
+That leaves about five seconds of immunity after the interruption ends.
+Rejections do not refresh timers, and a paused/recovering target cannot be
+paused again by this ability. Other historical control powers are not changed
+and do not share this immunity. No damage or random failure roll is added.
+
+These timers are transient, separate from position and ordinary command lag.
+Both main loops tick every loaded character, including NPCs and link-dead
+players, once per pulse before input. The interpreter, automatic violence,
+multi-hit/single-hit entry points, NPC special procedures and NPC aggression
+honor the pause. Timers do not suspend regeneration, already-applied effects,
+world events or incoming damage. They are not saved; restarting or unloading
+a character resets them. This is not a new generic stun system for all powers.
+
+The eleventh C suite links the full production engine with only its server
+entry point renamed. Synthetic player/NPC fixtures exercise actual casting,
+safety, combat initiation, attack suppression/resumption, command processing,
+NPC special procedures, immunity across different attackers, exact mana
+boundaries, targeting and timer expiry. No historical accounts/world files
+load. Catalog tests also check main-loop/action-path wiring structurally.
+Live multiplayer balance and long-running sessions remain unverified.

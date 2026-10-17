@@ -89,7 +89,7 @@ void do_monklearn( CHAR_DATA *ch, char *argument )
 	    if (get_monk(ch, MONK_TECH) >= 4) stc("4: Invite Beast   - Possesses weak creatures. (invite)\n\r", ch);
 	    if (get_monk(ch, MONK_TECH) >= 5) stc("5: Crippling Kick - Mana burning kick. (cripple)\n\r", ch);
 	    if (get_monk(ch, MONK_TECH) >= 6) stc("6: Dark Blaze     - Blinds your foes. (darkblaze)\n\r", ch);
-    if (get_monk(ch, MONK_TECH) >= 7) stc("7: Stun Fist      - Currently disabled. (stunfist)\n\r", ch);
+    if (get_monk(ch, MONK_TECH) >= 7) stc("7: Stun Fist      - Brief combat interruption; 5000 mana. (stunfist)\n\r", ch);
 	    if (get_monk(ch, MONK_TECH) >= 8) stc("8: Chimera Form   - Powerful form. (chimera)\n\r", ch);
 	    return;
 	}
@@ -578,12 +578,18 @@ void do_stunfist( CHAR_DATA *ch, char *argument )
     CHAR_DATA *victim;
     char arg[MIL];
 
-    argument = one_argument(argument, arg);
+    if (ch == NULL) return;
 
-    if (!IS_MONK(ch))
+    if (!IS_MONK(ch) || ch->pcdata == NULL)
     {
 	stc("Huh?\n\r", ch);
 	return;
+    }
+
+    if (IS_COMBAT_PAUSED(ch))
+    {
+stc("You are still recovering from a combat interruption.\n\r", ch);
+return;
     }
 
     if (get_monk(ch, MONK_TECH) < 7)
@@ -592,53 +598,63 @@ void do_stunfist( CHAR_DATA *ch, char *argument )
 	return;
     }
 
-    stc("Disabled by Akuma.\n\r", ch);
-    return;
-
-    if (ch->mana < 5000)
+    if (ch->in_room == NULL || ch->position < POS_FIGHTING)
     {
-	stc("You don't have enough mana.\n\r", ch);
+stc("You must be on your feet to use Stun Fist.\n\r", ch);
 	return;
     }
 
-    if (arg[0] == '\0' && ch->fighting == NULL)
+    one_argument(argument, arg);
+    victim = arg[0] == '\0' ? ch->fighting : get_char_room(ch, arg);
+    if (victim == NULL || victim->in_room != ch->in_room)
     {
 	stc("Use stunfist on whom?\n\r", ch);
 	return;
     }
 
-    if ((victim = ch->fighting) == NULL)
-    {
-	if ((victim = get_char_room(ch, arg)) == NULL)
-	{
-	    stc("They aren't here.\n\r", ch);
-	    return;
-	}
-    }
-
-    if (is_safe(ch, victim)) return;
-
     if (ch == victim)
     {
-        stc("I think not...\n\r", ch);
-        return;
+stc("I think not...\n\r", ch);
+return;
     }
 
-    ch->mana -= 5000;
+    if (!IS_AWAKE(victim))
+    {
+stc("They are already unable to fight.\n\r", ch);
+return;
+    }
 
-    act("You punch $N in the gut.", ch, NULL, victim, TO_CHAR);
-    act("$n punches $N in the gut.", ch, NULL, victim, TO_NOTVICT);
-    act("$n punches you in the gut.", ch, NULL, victim, TO_VICT);
+    if (IS_AFFECTED(ch, AFF_CHARM) && ch->master == victim)
+    {
+stc("You cannot strike your master.\n\r", ch);
+return;
+    }
 
-    act("You keel over from the force of $N's blow.", victim, NULL, ch, TO_CHAR);
-    act("$n falls to one knee from $N's blow.", victim, NULL, ch, TO_NOTVICT);
-    act("$n keels over from your blow.", victim, NULL, ch, TO_VICT);
+    /* Per-target immunity is shared across all attackers. Never refresh it
+     * on a rejected cast or extend an existing interruption. */
+    if (victim->stun_immunity > 0 || IS_COMBAT_PAUSED(victim))
+    {
+stc("They have not yet recovered enough to be stunned again.\n\r", ch);
+return;
+    }
 
-    send_to_char( "You paralyze them with your punch!\n\r", ch );
-    send_to_char( "You rest a moment to catch your breath.\n\r", victim );
+    if (ch->mana < STUN_FIST_COST)
+    {
+stc("You don't have enough mana.\n\r", ch);
+return;
+    }
 
-    WAIT_STATE(ch, 24);
-    WAIT_STATE(victim, 24);
+    if (is_safe(ch, victim) || !hurt_fighting(ch, victim)) return;
+
+    ch->mana -= STUN_FIST_COST;
+    ch->combat_pause = STUN_FIST_RECOVERY;
+    victim->combat_pause = STUN_FIST_DURATION;
+    victim->stun_immunity = STUN_FIST_IMMUNITY;
+
+    act("You interrupt $N with a stunning punch and brace to recover.", ch, NULL, victim, TO_CHAR);
+    act("$n staggers $N with a stunning punch.", ch, NULL, victim, TO_NOTVICT);
+    act("$n's punch briefly interrupts your actions and attacks!", ch, NULL, victim, TO_VICT);
+
     return;
 }
 
