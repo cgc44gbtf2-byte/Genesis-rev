@@ -14,7 +14,7 @@ O_FILES = atomic_save.o act_comm.o act_info.o act_move.o act_obj.o act_wiz.o bit
 	  drow.o elemental.o fight.o flag.o handler.o highland.o interp.o \
 	  kav_info.o kav_wiz.o mage.o magic.o memwatch.o monk.o more.o ninja.o \
 	  olc.o random.o rename.o rot_wiz.o save.o signals.o sorcerer.o \
-	  special.o stance.o string.o trap.o update.o werewolf.o wizutil.o \
+  special.o stance.o string.o trap.o update.o vampire.o werewolf.o wizutil.o \
 	  wwauspice.o wwbreed.o wwtribe.o
 
 merc: $(O_FILES)

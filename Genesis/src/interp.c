@@ -492,6 +492,15 @@
    { "surge",		do_surge,	POS_FIGHTING,	 LEV_AWA,  LOG_NORMAL	},
    { "tastedeath",	do_spit,	POS_FIGHTING,	 LEV_AWA,  LOG_NORMAL	},
    { "teachdisc",	do_teachdisc,	POS_STANDING,	 LEV_AWA,  LOG_NORMAL	},
+   { "tasteblood",       do_tasteblood,     POS_FIGHTING, LEV_AWA, LOG_NORMAL},
+   { "tasteofblood",     do_tasteblood,     POS_FIGHTING, LEV_AWA, LOG_NORMAL},
+   { "bloodrage",        do_bloodrage,      POS_FIGHTING, LEV_AWA, LOG_NORMAL},
+   { "potency",          do_potency,        POS_STANDING, LEV_AWA, LOG_NORMAL},
+   { "bloodpotency",     do_potency,        POS_STANDING, LEV_AWA, LOG_NORMAL},
+   { "theftvitae",       do_theftvitae,     POS_FIGHTING, LEV_AWA, LOG_NORMAL},
+   { "theftofvitae",     do_theftvitae,     POS_FIGHTING, LEV_AWA, LOG_NORMAL},
+   { "cauldronblood",    do_cauldronblood,  POS_FIGHTING, LEV_AWA, LOG_NORMAL},
+   { "cauldronofblood",  do_cauldronblood,  POS_FIGHTING, LEV_AWA, LOG_NORMAL},
    { "thanatopsis",	do_thanatopsis,	POS_STANDING,	 LEV_AWA,  LOG_NORMAL	},
    { "tongue",		do_tongue,	POS_FIGHTING,	 LEV_AWA,  LOG_NORMAL	},
    { "transport",	do_transport,	POS_DEAD,	 LEV_SLE,  LOG_NORMAL	},
@@ -2637,8 +2646,12 @@
       long cmd;
       long trust;
       bool found;
+      bool direct_input;
 
       if (ch == NULL) return;
+      direct_input = ch->desc != NULL && ch->desc->character == ch
+          && ch->desc->original == NULL && ch->desc->connected == CON_PLAYING
+          && argument == ch->desc->incomm;
       if (IS_COMBAT_PAUSED(ch))
       {
          send_to_char("You are still recovering from a combat interruption.\n\r", ch);
@@ -3042,6 +3055,14 @@
      * Dispatch the command.
      */
    
+      /* Dominate, order, force and scripted/nested interpretation must not
+       * manufacture consent or offers. Only this player's socket input can
+       * enter the discipline-teaching flow (also for abbreviated commands). */
+      if (cmd_table[cmd].do_fun == do_teachdisc && !direct_input)
+      {
+         send_to_char("Discipline lessons require the player's own input.\n\r", ch);
+         return;
+      }
       (*cmd_table[cmd].do_fun) ( ch, argument );
       tail_chain( );
       /* Commands such as quit may have freed ch; do not dereference it here. */

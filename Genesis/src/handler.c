@@ -171,6 +171,11 @@ void affect_modify( CHAR_DATA *ch, AFFECT_DATA *paf, bool fAdd )
 	    case APPLY_SAVING_BREATH: ch->saving_throw		+= mod;	break;
 	    case APPLY_SAVING_SPELL:  ch->saving_throw		+= mod;	break;
 	    case APPLY_POLY:	      ch->polyaff		+= mod;	break;
+            case APPLY_BLOOD_MAX:
+                ch->blood[BLOOD_POOL] += mod;
+                ch->blood[BLOOD_POOL] = UMAX(0, ch->blood[BLOOD_POOL]);
+                ch->blood[BLOOD_CURRENT] = URANGE(0, ch->blood[BLOOD_CURRENT], ch->blood[BLOOD_POOL]);
+                break;
 	}
 	return;
     }
@@ -208,6 +213,11 @@ void affect_modify( CHAR_DATA *ch, AFFECT_DATA *paf, bool fAdd )
     case APPLY_SAVING_BREATH: ch->saving_throw		+= mod;	break;
     case APPLY_SAVING_SPELL:  ch->saving_throw		+= mod;	break;
     case APPLY_POLY:	      ch->polyaff		+= mod;	break;
+    case APPLY_BLOOD_MAX:
+        ch->blood[BLOOD_POOL] += mod;
+        ch->blood[BLOOD_POOL] = UMAX(0, ch->blood[BLOOD_POOL]);
+        ch->blood[BLOOD_CURRENT] = URANGE(0, ch->blood[BLOOD_CURRENT], ch->blood[BLOOD_POOL]);
+        break;
     }
 
     return;
@@ -2012,6 +2022,7 @@ char *affect_loc_name( long location )
     case APPLY_SAVING_BREATH:	return "Modifies your save vs breath by";
     case APPLY_SAVING_SPELL:	return "Modifies your save vs spell by";
     case APPLY_POLY:		return "Modifies your polymorph form by";
+    case APPLY_BLOOD_MAX:        return "Modifies blood capacity by";
     }
 
     bug( "Affect_location_name: unknown location %li.", location );

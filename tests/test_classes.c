@@ -14,6 +14,13 @@
 static char output[8192];
 static char *owned_string;
 static int duplicates, releases;
+long gsn_potency;
+bool is_affected(CHAR_DATA *ch, long sn)
+{
+    (void)ch;
+    (void)sn;
+    return FALSE; /* This isolated class-selection fixture has no affects. */
+}
 
 char *one_argument(char *argument, char *word)
 {

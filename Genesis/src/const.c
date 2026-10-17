@@ -865,4 +865,10 @@ const	struct	skill_type	skill_table	[MAX_SKILL]	=
          "mage invis",        "You no longer block your image from other's minds."
     },
 
+    {    "blood potency",     99,
+         spell_null,          TAR_CHAR_SELF,          POS_STANDING,
+         &gsn_potency,         SLOT(0),               0, 12,
+         "blood potency",     "Your concentrated blood returns to normal."
+    },
+
 };

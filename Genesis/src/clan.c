@@ -2926,7 +2926,11 @@ void do_powers( CHAR_DATA *ch, char *argument )
 
     if (get_disc(ch,DISC_THAUMATURGY) > 0)
     {
-	strcpy(buf,"Thaumaturgy: Paths");
+strcpy(buf,"Thaumaturgy: Tasteblood");
+if (get_disc(ch, DISC_THAUMATURGY) >= 2) strcat(buf," Bloodrage");
+if (get_disc(ch, DISC_THAUMATURGY) >= 3) strcat(buf," Potency");
+if (get_disc(ch, DISC_THAUMATURGY) >= 4) strcat(buf," Theftvitae");
+if (get_disc(ch, DISC_THAUMATURGY) >= 5) strcat(buf," Cauldronblood");
 	strcat(buf,".\n\r");
 	send_to_char(buf,ch);
     }
@@ -3279,222 +3283,6 @@ void do_discipline( CHAR_DATA *ch, char *argument )
     ch->primal -= cost;
     send_to_char("You improve your discipline.\n\r",ch);
 
-    return;
-}
-
-void do_teachdisc( CHAR_DATA *ch, char *argument )
-{
-    char buf  [MAX_INPUT_LENGTH];
-    char arg1 [MAX_INPUT_LENGTH];
-    char arg2 [MAX_INPUT_LENGTH];
-    char disc [25];
-    CHAR_DATA *victim;
-    long improve, sn, col;
-
-    argument = one_argument( argument, arg1 );
-    argument = one_argument( argument, arg2 );
-
-    if (IS_NPC(ch)) return;
-
-   // if (!IS_VAMPIRE(ch) )
-    {
-	send_to_char("Huh?\n\r",ch);
-	return;
-    }
-
-    if (IS_MORE(ch, MORE_NPC))
-    {
-	send_to_char("NPC's cannot teach disciplines.\n\r",ch);
-	return;
-    }
-
-    if ( arg1[0] == '\0' || arg2[0] == '\0' )
-    {
-	send_to_char( "Syntax: teach <person> <discipline>\n\r", ch );
-	send_to_char( "The following list contains your disciplines and the level you can teach to.\n\r", ch );
-	send_to_char( "--------------------------------------------------------------------------------\n\r", ch );
-
-	col    = 0;
-	for ( sn = 0; sn <= DISC_MAX; sn++ )
-	{
-	    if ( ch->pcdata->powers[sn] == 0 ) continue;
-	    switch (sn)
-	    {
-		default: 
-		    strcpy(disc,"None"); 
-		    break;
-		case DISC_ANIMALISM: 
-		    strcpy(disc,"Animalism"); 
-		    break;
-		case DISC_AUSPEX: 
-		    strcpy(disc,"Auspex"); 
-		    break;
-		case DISC_CELERITY: 
-		    strcpy(disc,"Celerity"); 
-		    break;
-		case DISC_CHIMERSTRY: 
-		    strcpy(disc,"Chimerstry"); 
-		    break;
-		case DISC_DOMINATE: 
-		    strcpy(disc,"Dominate"); 
-		    break;
-		case DISC_FORTITUDE: 
-		    strcpy(disc,"Fortitude"); 
-		    break;
-		case DISC_NECROMANCY: 
-		    strcpy(disc,"Necromancy"); 
-		    break;
-		case DISC_OBFUSCATE: 
-		    strcpy(disc,"Obfuscate"); 
-		    break;
-		case DISC_OBTENEBRATION: 
-		    strcpy(disc,"Obtenebration"); 
-		    break;
-		case DISC_POTENCE: 
-		    strcpy(disc,"Potence"); 
-		    break;
-		case DISC_PRESENCE: 
-		    strcpy(disc,"Presence"); 
-		    break;
-		case DISC_PROTEAN: 
-		    strcpy(disc,"Protean"); 
-		    break;
-		case DISC_QUIETUS: 
-		    strcpy(disc,"Quietus"); 
-		    break;
-		case DISC_SERPENTIS: 
-		    strcpy(disc,"Serpentis"); 
-		    break;
-		case DISC_THAUMATURGY: 
-		    strcpy(disc,"Thaumaturgy"); 
-		    break;
-		case DISC_VICISSITUDE: 
-		    strcpy(disc,"Vicissitude"); 
-		    break;
-	    }
-	    sprintf( buf, "%-15s: %-2li       ",
-		disc, ch->pcdata->powers[sn] );
-	    send_to_char( buf, ch );
-	    if ( ++col % 3 == 0 ) send_to_char( "\n\r", ch );
-	}
-	if ( col % 3 != 0 ) send_to_char( "\n\r", ch );
-	send_to_char( "--------------------------------------------------------------------------------\n\r", ch );
-	return;
-    }
-
-    if ( ( victim = get_char_room( ch, arg1 ) ) == NULL )
-    {
-	send_to_char( "They aren't here.\n\r", ch );
-	return;
-    }
-
-    if ( ch == victim )
-    {
-	send_to_char( "You cannot teach yourself!\n\r", ch );
-	return;
-    }
-
-    if (IS_NPC(victim))
-    {
-	send_to_char( "Not on NPC's.\n\r", ch );
-	return;
-    }
-
-   if(ch->exp < 150000000)
-	{
-	stc("It costs 150000000 exp to teach a discipline",ch);
-	return;
-	} 
-   if(victim->exp < 150000000)
-	{
-	stc("It costs 15000000 exp to learn a disciplines", victim);
-	return;
-	}
-
-/*   if(ch->vampgen > 7)
-	{
-	stc("Only Elders may teach disciplines.\n\r", ch);
-	return;
-	}*/
-    if (!str_cmp(arg2,"animalism")) 
-	improve = DISC_ANIMALISM;
-    else if (!str_cmp(arg2,"auspex")) 
-	improve = DISC_AUSPEX;
-    else if (!str_cmp(arg2,"celerity")) 
-	improve = DISC_CELERITY;
-    else if (!str_cmp(arg2,"chimerstry")) 
-	improve = DISC_CHIMERSTRY;
-    else if (!str_cmp(arg2,"dominate")) 
-	improve = DISC_DOMINATE;
-    else if (!str_cmp(arg2,"fortitude")) 
-	improve = DISC_FORTITUDE;
-    else if (!str_cmp(arg2,"necromancy")) 
-	improve = DISC_NECROMANCY;
-    else if (!str_cmp(arg2,"obfuscate")) 
-	improve = DISC_OBFUSCATE;
-    else if (!str_cmp(arg2,"obtenebration")) 
-	improve = DISC_OBTENEBRATION;
-    else if (!str_cmp(arg2,"potence")) 
-	improve = DISC_POTENCE;
-    else if (!str_cmp(arg2,"presence")) 
-	improve = DISC_PRESENCE;
-    else if (!str_cmp(arg2,"protean")) 
-	improve = DISC_PROTEAN;
-    else if (!str_cmp(arg2,"quietus")) 
-	improve = DISC_QUIETUS;
-    else if (!str_cmp(arg2,"serpentis")) 
-	improve = DISC_SERPENTIS;
-    else if (!str_cmp(arg2,"thaumaturgy")) 
-	improve = DISC_THAUMATURGY;
-    else if (!str_cmp(arg2,"vicissitude")) 
-	improve = DISC_VICISSITUDE;
-    else
-    {
-	send_to_char("You know of no such discipline.\n\r",ch);
-	return;
-    }
-
-    if (ch->pcdata->powers[improve] == 0)
-    {
-	send_to_char("You know of no such discipline.\n\r",ch);
-	return;
-    }
-
-    if (ch->pcdata->powers[improve] < 7)
-    {
-	send_to_char("You require level 7 in a discipline before you can teach it.\n\r",ch);
-	return;
-    }
-
-    if (!IS_VAMPIRE(victim))
-    {
-	send_to_char("They are unable to learn disciplines.\n\r",ch);
-	return;
-    }
-
-    if (!IS_EXTRA(victim, EXTRA_VAMPIRE))
-    {
-	send_to_char("They refuse to learn any disciplines.\n\r",ch);
-	return;
-    }
-
-    if (victim->pcdata->powers[improve] != 0)
-    {
-	send_to_char("They already know that discipline.\n\r",ch);
-	return;
-    }
-    if (ch->pcdata->cland[1] != improve && ch->pcdata->cland[2] != improve && ch->pcdata->cland[3] != improve)
-	{
-	stc("You can only teach clan disciplines.\n\r", ch);
-	return;
-	}
-    ch->exp -= 150000000;
-    victim->exp -= 150000000;
-    victim->pcdata->powers[improve] = -1;
-    sprintf(buf,"You teach $N how to use the %s discipline.",capitalize(arg2));
-    act(buf,ch,NULL,victim,TO_CHAR);
-    sprintf(buf,"$n teaches you how to use the %s discipline.",capitalize(arg2));
-    act(buf,ch,NULL,victim,TO_VICT);
     return;
 }
 
@@ -4296,6 +4084,10 @@ void update_gen( CHAR_DATA *ch )
 	    ch->blood[BLOOD_POOL] = 200;
 	    break;
     }
+    /* Generation changes must not lose an active, serialized capacity buff. */
+    if (gsn_potency > 0 && is_affected(ch, gsn_potency))
+        ch->blood[BLOOD_POOL] += 100;
+    ch->blood[BLOOD_CURRENT] = URANGE(0, ch->blood[BLOOD_CURRENT], ch->blood[BLOOD_POOL]);
     return;
 }
 

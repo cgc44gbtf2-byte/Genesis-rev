@@ -123,7 +123,7 @@ typedef void SPELL_FUN	args( ( long sn, long level, CHAR_DATA *ch, void *vo ) );
  * Adjust the pulse numbers to suit yourself.
  */
 #define AGE_PK			30 /* This age = can pk */
-#define MAX_SKILL		131
+#define MAX_SKILL		132
 #define MAX_SPELL		58
 #define MAX_LEVEL		7
 #define LEV_ST			(MAX_LEVEL)
@@ -1048,6 +1048,7 @@ extern CHAR_DATA Score_ch;      /* Score_ch */
 #define APPLY_SAVING_BREATH	     23
 #define APPLY_SAVING_SPELL	     24
 #define APPLY_POLY		     25
+#define APPLY_BLOOD_MAX               26
 
 /*
  * Absorbed things
@@ -1566,6 +1567,10 @@ struct	char_data
  */
 struct	pc_data
 {
+    /* Transient named lesson consent; never serialized or kept as pointers. */
+    char                teach_from[32];
+    long                teach_disc;
+    time_t              teach_until;
     PC_DATA *		next;
     BUFFER *		buffer;
     CHAR_DATA *		familiar;
@@ -1942,6 +1947,7 @@ extern	long	gsn_curse;
 extern	long	gsn_invis;
 extern	long	gsn_mass_invis;
 extern	long	gsn_poison;
+extern  long    gsn_potency;
 extern	long	gsn_sleep;
 extern	long	gsn_fear;
 extern  long    gsn_atoningwind;
@@ -2627,6 +2633,13 @@ DECLARE_DO_FUN( do_sunbath      );
 DECLARE_DO_FUN(	do_surge	);
 DECLARE_DO_FUN(	do_switch	);
 DECLARE_DO_FUN(	do_teachdisc	);
+DECLARE_DO_FUN(do_tasteblood);
+DECLARE_DO_FUN(do_bloodrage);
+DECLARE_DO_FUN(do_potency);
+DECLARE_DO_FUN(do_theftvitae);
+DECLARE_DO_FUN(do_cauldronblood);
+long get_blood_potency args((CHAR_DATA *ch));
+void vampire_clear_offer args((CHAR_DATA *ch));
 DECLARE_DO_FUN( do_telekinetics );
 DECLARE_DO_FUN(	do_tell		);
 DECLARE_DO_FUN( do_telepathy	);

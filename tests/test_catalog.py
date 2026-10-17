@@ -8,6 +8,22 @@ SRC = pathlib.Path(__file__).resolve().parents[1] / "Genesis" / "src"
 
 
 class CatalogChecks(unittest.TestCase):
+    def test_vampire_port_keeps_ids_and_registers_real_powers(self):
+        header = (SRC / "merc.h").read_text()
+        for name, value in (("THAUMATURGY", 17), ("VICISSITUDE", 18),
+                            ("NECROMANCY", 7), ("OBFUSCATE", 9)):
+            self.assertRegex(header, rf"#define DISC_{name}\s+{value}\b")
+        source = (SRC / "vampire.c").read_text()
+        self.assertNotIn("blood[2]", source)
+        interp = (SRC / "interp.c").read_text()
+        for name in ("tasteblood", "bloodrage", "potency", "theftvitae", "cauldronblood"):
+            self.assertRegex(interp, rf'\{{\s*"{name}"\s*,\s*do_{name}\b')
+        const = (SRC / "const.c").read_text()
+        self.assertLess(const.index('"mage invis",'), const.index('"blood potency",'))
+        clan = (SRC / "clan.c").read_text()
+        self.assertNotIn("cland[3]", clan)
+        self.assertNotIn('Thaumaturgy: Paths', clan)
+
     def test_stun_is_wired_into_all_action_paths(self):
         comm = (SRC / "comm.c").read_text()
         self.assertEqual(comm.count("combat_status_update();"), 2)

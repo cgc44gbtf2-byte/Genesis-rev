@@ -89,7 +89,7 @@ on all interfaces by default; restrict access with the host firewall.
 
 ## Verification and remaining scope
 
-Ten isolated regression suites cover network/authentication, data readers,
+Twelve regression suites cover network/authentication, data readers,
 editor/command buffer boundaries, atomic player saves and signal handling,
 and gameplay fixes. Normal and ASan/UBSan suites passed locally. The complete
 server compiled and booted with original area/help data in an isolated
@@ -203,3 +203,67 @@ An eleventh regression suite links the actual engine to test casting, combat,
 commands, NPC behavior and immunity with synthetic characters only. Test
 engine objects live separately from production objects, including under
 ASan/UBSan. See the class audit for timing, restart and balance limitations.
+
+## EM-style Vampire teaching and Thaumaturgy
+
+Teaching and the five Path of Blood powers are adapted from Ethereal-Mists
+(`EM.zip`, source commit `885604dbca035103ea8bea96e9e40993e2eb00a4`).
+Genesis's discipline numbers, nine supported clan choices, generation table,
+primal training costs and rank-6/7 powers remain intact. This does **not** import
+EM player files, Ghouls, Gargoyles, hybrid classes, or other disciplines.
+
+Teaching is free and unlocks a discipline at untrained rank `-1`; it does not
+grant rank 1. A teacher may teach any supported discipline trained to rank 3,
+not just clan disciplines. Both players must be connected, visible, standing,
+on the same plane and outside combat:
+
+```
+teachdisc <student> <discipline>
+teachdisc accept <teacher> <discipline>
+teachdisc decline
+```
+
+The student must personally accept the matching named offer within 120 seconds.
+Feeding consent is not teaching consent. Dominate, order, force and nested
+interpreter calls cannot create/accept lessons; switched sessions cannot teach.
+Acceptance rechecks the teacher, student and discipline. Success is reported
+only after the student's atomic save confirms durability. Failed/uncertain
+saves retain the offer and roll the in-memory unlock back for a free,
+idempotent retry. After a post-rename fsync failure the disk may already contain
+the unlock; no XP/primal is ever charged by teaching. Offers are not saved.
+
+| Rank | Command | Effect / cost |
+|---|---|---|
+| 1 | `tasteblood <target>` | Inspect blood, derived potency, and Vampire clan/generation/trained disciplines; no blood cost, 12-pulse recovery. |
+| 2 | `bloodrage <vampire> regenerate` | Enable, never cancel, normal Genesis regeneration. Other players must lower feeding defences to consent. No casting blood cost; regeneration itself pays normal upkeep; 12 pulses. |
+| 3 | `potency` | Spend `10 * (14 - clamp(generation, 1, 13))` blood; gain +100 capacity and +1 potency for `min(rank, 5) * random(5, 10)` world ticks; 12 pulses. Does not fill the extra capacity or stack. |
+| 4 | `theftvitae [target]` | Steal `random(5, 10) * victim potency`, capped by available blood and free capacity; no upfront blood cost; 12 pulses. |
+| 5 | `cauldronblood [target]` | Spend 50 blood; boil up to 10–20 victim blood and inflict that percentage of max HP, reduced by Fortitude; 20 pulses. |
+
+Aliases: `tasteofblood`, `bloodpotency`, `theftofvitae`, `cauldronofblood`.
+A named hostile target takes precedence over the current opponent; omitting it
+uses the current opponent. Rejected casts do not charge resources or recovery.
+Normal safety/PK/plane/combat checks apply before charging. Obfuscation breaks
+on successful hostile casts. Genesis's acidic Werewolf/Vicissitude blood can
+backfire on Theft. Blood depletion can kill non-Vampires through the existing
+death handler; depleted Vampires retain Genesis's torpor/starvation rules
+rather than EM's forced execution.
+
+**Compatibility adaptations:** base potency derives from Genesis's existing
+generation pools: gen 1 = 10; 2–3 = 8; 4–5 = 5; 6–8 = 4; 9–11 = 3;
+12–13 = 2; other generations/non-Vampires = 1. No third `blood[]` slot is
+introduced. Blood Potency uses one named, serialized capacity affect and a
+derived +1 potency bonus; it survives save/load and generation updates, expires
+on normal world ticks, and clamps current blood when capacity falls. Existing
+skill IDs remain stable; the new skill is appended. Older binaries do not know
+the new skill/affect, so rolling back after using it needs explicit save cleanup.
+Blood Rage's advertised EM stat-boost option was not implemented there and is
+not invented here.
+
+The twelfth suite links the actual engine and covers teaching/forced-consent
+guards, existing training costs/caps, save failures (including post-rename
+directory-fsync uncertainty), target safety, blood boundaries, backfire,
+Fortitude, Vampire torpor, buff expiry and real save/load. These are synthetic
+tests, not multiplayer balance proof. If the world has no trained Thaumaturgy
+teacher, an operator must seed the initial rank-3 teacher through existing
+staff tools; no existing account or clan mapping is changed automatically.

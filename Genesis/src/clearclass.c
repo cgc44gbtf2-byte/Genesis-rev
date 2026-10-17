@@ -25,6 +25,7 @@ void do_clearclass( CHAR_DATA *ch, char *argument )
         return;
     }
 	do_mclear(victim, "self");
+    vampire_clear_offer(victim);
 
     victim->max_hit                     = 10000;
     victim->hit                         = 10000;

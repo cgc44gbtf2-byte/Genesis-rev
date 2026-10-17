@@ -78,8 +78,9 @@ values are regression-tested, not rebalanced. NPC and immortal caps differ.
   below. The historical six-second command-only delay was not re-enabled.
 - **Quicksand / Lycaon:** explicitly gutted in `wwtribe.c`. No speculative
   implementation or re-enablement.
-- **Teach discipline:** `do_teachdisc` in `clan.c` currently returns
-  unconditionally. Recorded as unavailable, not silently restored.
+- **Teach discipline:** subsequently replaced with guarded EM-style teaching
+  in `vampire.c`: free at rank 3, explicit named student acceptance, and
+  checked persistence. See the subsequent port notes below.
 - **Mage per-sphere descriptions:** legacy `sphere <name>` views still
   contain placeholder prose despite implemented spells. `magepowers` is
   the more useful command; its thresholds were corrected in this pass.
@@ -130,3 +131,30 @@ NPC special procedures, immunity across different attackers, exact mana
 boundaries, targeting and timer expiry. No historical accounts/world files
 load. Catalog tests also check main-loop/action-path wiring structurally.
 Live multiplayer balance and long-running sessions remain unverified.
+
+## EM-style Vampire port
+
+The dormant teaching routine (including its invalid `cland[3]` access) is
+removed. Teaching now unlocks at `-1`, requires a live rank-3 teacher, has no
+XP/primal fee, and requires the student's own acceptance of a named, short-lived
+offer. Neither broad feeding consent nor Dominate/force can substitute for it.
+The learner's checked atomic save must succeed before success is announced;
+uncertain saves can be retried without any charge.
+
+Thaumaturgy's old `Paths` advertisement is replaced with actual rank-1–5
+commands: Taste Blood, Blood Rage (regeneration only), Blood Potency, Theft of
+Vitae, and Cauldron of Blood. The new capacity affect is appended to the skill
+catalog without moving existing skills. Potency is derived from Genesis's
+generations, not an imported EM blood-array slot. Capacity survives save/load
+and generation changes, expires normally and clamps excess blood. Detailed
+syntax, costs, durations, portability adaptations and rollback caveats are in
+the README.
+
+The twelfth suite links production engine objects, exercising these abilities
+and real character serialization using synthetic fixtures and a private
+temporary runtime. It includes forced teaching, expiry/decline/revalidation,
+unchanged primal training/caps, pre-rename save failure and post-rename
+directory-fsync failure, protected/wrong-plane targets, explicit target
+selection, capacity boundaries, acid backfire, Fortitude, torpor, and actual
+world-tick buff expiration. New powers still require multiplayer balance
+testing; this port does not enable missing disciplines or add a Tremere clan.
