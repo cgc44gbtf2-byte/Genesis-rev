@@ -10,6 +10,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include "../Genesis/src/merc.h"
+
+extern void init_mm(void);
 #include "../Genesis/src/atomic_save.h"
 
 void fwrite_char(CHAR_DATA *, FILE *);
@@ -207,16 +209,16 @@ static void assert_unchanged(void)
     assert(chars[0].wait == 0 && chars[0].fighting == NULL);
 }
 
-static void test_rejections(DO_FUN *power, int rank)
+static void test_rejections(DO_FUN *power, int rank, long discipline)
 {
     reset();
     power(NULL, "");
     power(&chars[3], "student");
     assert_unchanged();
-    players[0].powers[DISC_THAUMATURGY] = rank - 1;
+    players[0].powers[discipline] = rank - 1;
     power(chars, "student");
     assert_unchanged();
-    players[0].powers[DISC_THAUMATURGY] = rank;
+    players[0].powers[discipline] = rank;
     power(chars, "teacher");
     power(chars, "missing");
     power(chars, "student surplus");
@@ -372,6 +374,7 @@ static void test_potency(void)
     chars[0].vampgen = 9;
     update_gen(chars);
     chars[0].blood[0] = 300;
+    chars[0].wait = 0;
     do_potency(chars, "");
     chars[0].blood[0] = 400;
     chars[0].affected->duration = 0;
@@ -420,6 +423,187 @@ static void test_buff_save_roundtrip(void)
     assert(get_blood_potency(&loaded) == 3);
 }
 
+static void test_recovery_cannot_be_bypassed(void)
+{
+    long blood, hp, victim_blood, third_blood;
+    char forced[] = "theftvitae other";
+    reset();
+    players[0].powers[DISC_THAUMATURGY] = 5;
+    do_cauldronblood(chars, "student");
+    blood = chars[0].blood[0];
+    hp = chars[1].hit;
+    victim_blood = chars[1].blood[0];
+    third_blood = chars[2].blood[0];
+    assert(chars[0].wait == 20);
+    /* An indirect interpreter call doesn't pass the descriptor input gate
+     * where ordinary lag is enforced. The ability must enforce it too. */
+    interpret(chars, forced);
+    do_cauldronblood(chars, "student");
+    do_tasteblood(chars, "student");
+    do_bloodrage(chars, "teacher regenerate");
+    do_potency(chars, "");
+    assert(chars[0].blood[0] == blood && chars[1].hit == hp);
+    assert(chars[1].blood[0] == victim_blood && chars[2].blood[0] == third_blood);
+    assert(chars[0].wait == 20 && chars[0].affected == NULL);
+    assert(players[0].regenerate == 0);
+    for (int i = 19; i > 0; --i)
+    {
+        chars[0].wait = i;
+        do_theftvitae(chars, "other");
+        assert(chars[0].blood[0] == blood && chars[2].blood[0] == third_blood);
+        assert(chars[0].wait == i); /* Rejection does not refresh recovery. */
+    }
+    chars[0].wait = 0;
+    do_theftvitae(chars, "other");
+    assert(chars[2].blood[0] < third_blood && chars[0].wait == 12);
+}
+
+static void test_blood_depletion_is_not_execution(void)
+{
+    reset();
+    players[0].powers[DISC_THAUMATURGY] = 5;
+    chars[1].class = CLASS_MONK;
+    chars[1].hit = chars[1].max_hit = 1000000;
+    chars[1].blood[0] = 1;
+    do_theftvitae(chars, "student");
+    assert(chars[1].blood[0] == 0 && chars[0].blood[0] == 101);
+    assert(chars[1].hit == 1000000 && chars[1].position == POS_FIGHTING);
+    chars[0].wait = 0;
+    do_cauldronblood(chars, "student");
+    assert(chars[0].blood[0] == 101 && chars[0].wait == 0);
+    assert(chars[1].hit == 1000000);
+
+    reset();
+    players[0].powers[DISC_THAUMATURGY] = 5;
+    chars[1].class = CLASS_MONK;
+    chars[1].hit = chars[1].max_hit = 1000000;
+    chars[1].blood[0] = 1;
+    do_cauldronblood(chars, "student");
+    assert(chars[1].blood[0] == 0 && chars[0].blood[0] == 50);
+    assert(chars[1].hit == 990000); /* Exactly 1%, not a full-HP execution. */
+    assert(chars[1].position == POS_FIGHTING && chars[0].wait == 20);
+
+    reset();
+    players[0].powers[DISC_THAUMATURGY] = 4;
+    chars[3].blood[0] = 1;
+    chars[3].hit = chars[3].max_hit = 1000000;
+    do_theftvitae(chars, "mobile");
+    assert(chars[3].blood[0] == 0 && chars[3].hit == 1000000);
+    assert(chars[3].fighting == chars && chars[0].blood[0] == 101);
+}
+
+static void test_quietus_leech(void)
+{
+    reset();
+    players[0].powers[DISC_QUIETUS] = 5;
+    do_leechblood(chars, "student");
+    assert_unchanged();
+    players[0].powers[DISC_QUIETUS] = 6;
+    chars[0].fighting = &chars[1];
+    chars[2].class = CLASS_MONK;
+    chars[2].blood[0] = 1;
+    chars[2].hit = chars[2].max_hit = 1000000;
+    do_leechblood(chars, "other");
+    assert(chars[2].blood[0] == 0 && chars[2].hit == 1000000);
+    assert(chars[0].blood[0] == 101 && chars[1].blood[0] == 100);
+    assert(chars[0].wait == 12);
+    do_leechblood(chars, "student");
+    assert(chars[1].blood[0] == 100 && chars[0].wait == 12);
+    reset();
+    players[0].powers[DISC_QUIETUS] = 6;
+    do_leechblood(chars, "mobile");
+    assert_unchanged();
+    chars[0].blood[0] = chars[0].blood[1];
+    do_leechblood(chars, "student");
+    assert(chars[1].blood[0] == 100 && chars[0].wait == 0);
+    chars[0].blood[0] = 5;
+    chars[0].hit = chars[0].max_hit = 20000;
+    chars[1].blood[0] = 2;
+    players[1].powers[DISC_VICISSITUDE] = 6;
+    do_leechblood(chars, "student");
+    assert(chars[0].blood[0] == 3 && chars[1].blood[0] == 0);
+    assert(chars[0].hit == 10000 && chars[0].wait == 12);
+    assert(chars[1].hit == 10000);
+}
+
+static void test_blood_economy(void)
+{
+    long generations[] = {1, 2, 4, 6, 9, 12, 13, 14, 0, -1, LONG_MAX};
+    for (size_t i = 0; i < sizeof(generations) / sizeof(generations[0]); ++i)
+    {
+        long total;
+        reset();
+        players[0].powers[DISC_THAUMATURGY] = 4;
+        chars[1].vampgen = generations[i];
+        update_gen(&chars[1]);
+        chars[1].blood[0] = chars[1].blood[1];
+        total = chars[0].blood[0] + chars[1].blood[0];
+        for (int cast = 0; cast < 12; ++cast)
+        {
+            chars[0].wait = 0;
+            do_theftvitae(chars, "student");
+            assert(chars[0].blood[0] + chars[1].blood[0] == total);
+            assert(chars[0].blood[0] >= 0 && chars[0].blood[0] <= chars[0].blood[1]);
+            assert(chars[1].blood[0] >= 0 && chars[1].blood[0] <= chars[1].blood[1]);
+            assert(chars[1].hit == 10000);
+        }
+    }
+    reset();
+    players[0].powers[DISC_THAUMATURGY] = 5;
+    chars[0].blood[0] = chars[0].blood[1]; /* Gen 9: six 50-blood casts. */
+    chars[1].vampgen = 1;
+    update_gen(&chars[1]);
+    chars[1].blood[0] = 1000;
+    for (int cast = 1; cast <= 6; ++cast)
+    {
+        chars[0].wait = 0;
+        chars[1].hit = chars[1].max_hit; /* Isolate affordability, not a duel. */
+        do_cauldronblood(chars, "student");
+        assert(chars[0].blood[0] == 300 - cast * 50 && chars[0].wait == 20);
+    }
+    chars[0].wait = 0;
+    {
+        long before = chars[1].blood[0], hp = chars[1].hit;
+        do_cauldronblood(chars, "student");
+        assert(chars[0].blood[0] == 0 && chars[0].wait == 0);
+        assert(chars[1].blood[0] == before && chars[1].hit == hp);
+    }
+}
+
+static void test_random_drain_bounds(void)
+{
+    /* UMIN is a macro that may evaluate its selected argument twice.
+     * Exercise limits inside each random range, not just below its minimum. */
+    for (int quietus = 0; quietus <= 1; ++quietus)
+        for (int trial = 0; trial < 512; ++trial)
+        {
+            long limit = quietus ? 15 : 7;
+            reset();
+            players[0].powers[DISC_THAUMATURGY] = 4;
+            players[0].powers[DISC_QUIETUS] = 6;
+            chars[0].blood[0] = chars[0].blood[1] - limit;
+            chars[1].class = CLASS_MONK;
+            chars[1].blood[0] = limit;
+            if (quietus) do_leechblood(chars, "student");
+            else do_theftvitae(chars, "student");
+            assert(chars[0].blood[0] <= chars[0].blood[1]);
+            assert(chars[1].blood[0] >= 0);
+            assert(chars[0].blood[0] + chars[1].blood[0] == 300);
+            assert(chars[1].hit == 10000);
+        }
+    for (int trial = 0; trial < 512; ++trial)
+    {
+        reset();
+        players[0].powers[DISC_THAUMATURGY] = 5;
+        chars[1].class = CLASS_MONK;
+        chars[1].blood[0] = 15;
+        do_cauldronblood(chars, "student");
+        assert(chars[1].blood[0] >= 0 && chars[1].blood[0] <= 5);
+        assert(chars[1].hit >= 8500 && chars[1].hit <= 9000);
+        assert(chars[0].blood[0] == 50 && chars[0].wait == 20);
+    }
+}
+
 int main(void)
 {
     char directory[] = "/tmp/anathema-vampire-XXXXXX";
@@ -430,10 +614,18 @@ int main(void)
     string_space = malloc(1024 * 1024); /* Tiny synthetic files, not a world load. */
     assert(string_space != NULL);
     top_string = string_space;
+    current_time = 123456; /* Reproducible, initialized engine RNG, not all-zero state. */
+    init_mm();
+    test_random_drain_bounds();
+    test_recovery_cannot_be_bypassed();
+    test_blood_depletion_is_not_execution();
+    test_quietus_leech();
+    test_blood_economy();
     test_teaching();
     test_save_failure();
-    test_rejections(do_theftvitae, 4);
-    test_rejections(do_cauldronblood, 5);
+    test_rejections(do_theftvitae, 4, DISC_THAUMATURGY);
+    test_rejections(do_cauldronblood, 5, DISC_THAUMATURGY);
+    test_rejections(do_leechblood, 6, DISC_QUIETUS);
     test_blood_magic();
     test_potency();
     test_buff_save_roundtrip();

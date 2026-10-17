@@ -158,3 +158,28 @@ directory-fsync failure, protected/wrong-plane targets, explicit target
 selection, capacity boundaries, acid backfire, Fortitude, torpor, and actual
 world-tick buff expiration. New powers still require multiplayer balance
 testing; this port does not enable missing disciplines or add a Tremere clan.
+
+## Blood-power cost and balance follow-up
+
+See [VAMPIRE_BALANCE.md](VAMPIRE_BALANCE.md) for the source-formula comparison
+against the other nine classes and remaining tuning questions. Removed the
+arbitrary-HP execution when Theft/Cauldron depleted a non-Vampire's blood.
+All five Thaumaturgy commands now reject recasts during existing command lag,
+including indirect interpreter dispatch.
+
+The older Quietus-6 Leech had the same depletion execution, could ignore an
+explicit target while fighting, waste drained blood against a full caster, and
+subtract blood below zero on acid backfire. It now shares the bounded, safe
+drain path. It retains rank 6, PC-only targeting, a 10–20-point normal drain,
+12-pulse recovery and a fixed 10,000-HP Vicissitude backlash; backlash now goes
+through normal combat/torpor handling and cannot skip recovery. This is not a
+global rewrite of legacy feeding, command lag or every class's attack handlers.
+
+The existing twelfth engine suite now also covers indirect/cross-power recasts,
+all 19 positive recovery values after a Cauldron cast, non-Vampire/NPC blood
+depletion without HP execution, one-point Cauldron damage at one-million HP,
+Quietus targeting/acid/capacity protections, resource conservation across
+valid and malformed generation values, and a six-cast generation-9 budget.
+The seeded engine RNG also runs 1,536 near-limit cases: random amounts must be
+evaluated once before `UMIN`, whose double evaluation could otherwise overfill
+the caster or overdraw the victim. This regression reproduced the pre-fix bug.

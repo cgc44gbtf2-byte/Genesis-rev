@@ -200,19 +200,27 @@ long get_blood_potency(CHAR_DATA *ch)
     return potency;
 }
 
-static bool thaumaturgy_ready(CHAR_DATA *ch, long rank)
+static bool blood_power_ready(CHAR_DATA *ch, long discipline, long rank)
 {
-    if (!vampire_ready(ch))
+    /* Descriptor input normally enforces lag, but Dominate, force, aliases
+     * and nested interpreter calls can bypass that outer gate. Never let
+     * these blood powers be recast during an existing action's recovery. */
+    if (!vampire_ready(ch) || ch->wait > 0)
     {
         if (ch != NULL) stc("You cannot use blood magic in your current state.\n\r", ch);
         return FALSE;
     }
-    if (get_disc(ch, DISC_THAUMATURGY) < rank)
+    if (get_disc(ch, discipline) < rank)
     {
-        stc("Your Thaumaturgy is not trained high enough for that power.\n\r", ch);
+        stc("Your discipline is not trained high enough for that blood power.\n\r", ch);
         return FALSE;
     }
     return TRUE;
+}
+
+static bool thaumaturgy_ready(CHAR_DATA *ch, long rank)
+{
+    return blood_power_ready(ch, DISC_THAUMATURGY, rank);
 }
 
 static CHAR_DATA *blood_target(CHAR_DATA *ch, char *argument, bool hostile)
@@ -236,7 +244,7 @@ static CHAR_DATA *blood_target(CHAR_DATA *ch, char *argument, bool hostile)
         return NULL;
     }
     if (!hostile) return victim;
-    if (victim == ch || victim->hit <= 0 || victim->hit > LONG_MAX - 11
+    if (victim == ch || victim->hit <= 0
         || (IS_NPC(victim) && victim->level > 700)
         || (IS_AFFECTED(ch, AFF_CHARM) && ch->master == victim)
         || is_safe(ch, victim))
@@ -342,14 +350,20 @@ void do_potency(CHAR_DATA *ch, char *argument)
     WAIT_STATE(ch, 12);
 }
 
-void do_theftvitae(CHAR_DATA *ch, char *argument)
+static void drain_blood(CHAR_DATA *ch, char *argument, bool quietus)
 {
     CHAR_DATA *victim;
     long amount, capacity;
     bool acid;
-    if (!thaumaturgy_ready(ch, 4)) return;
+    if (!blood_power_ready(ch, quietus ? DISC_QUIETUS : DISC_THAUMATURGY,
+                           quietus ? 6 : 4)) return;
     victim = blood_target(ch, argument, TRUE);
     if (victim == NULL) return;
+    if (quietus && IS_NPC(victim))
+    {
+        stc("Quietus Leech cannot target NPCs.\n\r", ch);
+        return;
+    }
     if (ch->blood[BLOOD_CURRENT] < 0
         || ch->blood[BLOOD_POOL] <= ch->blood[BLOOD_CURRENT]
         || victim->blood[BLOOD_CURRENT] <= 0)
@@ -358,27 +372,42 @@ void do_theftvitae(CHAR_DATA *ch, char *argument)
         return;
     }
     capacity = ch->blood[BLOOD_POOL] - ch->blood[BLOOD_CURRENT];
-    amount = UMIN(number_range(5, 10) * get_blood_potency(victim),
-                  UMIN(capacity, victim->blood[BLOOD_CURRENT]));
+    /* UMIN can evaluate an argument twice. Roll once before clamping so a
+     * second roll cannot exceed the capacity or available-blood bound. */
+    amount = quietus ? number_range(10, 20)
+                     : number_range(5, 10) * get_blood_potency(victim);
+    amount = UMIN(amount, UMIN(capacity, victim->blood[BLOOD_CURRENT]));
     if (!hurt_fighting(ch, victim)) return;
-    acid = (IS_WEREWOLF(victim) && get_tribe(victim, TRIBE_GET_OF_FENRIS) >= 3)
+    acid = (!quietus && IS_WEREWOLF(victim) && get_tribe(victim, TRIBE_GET_OF_FENRIS) >= 3)
         || (IS_VAMPIRE(victim) && get_disc(victim, DISC_VICISSITUDE) >= 6);
     REMOVE_BIT(ch->vampaff, VAM_OBFUSCATE);
     victim->blood[BLOOD_CURRENT] -= amount;
     WAIT_STATE(ch, 12);
+    if (!IS_NPC(victim) && IS_MORE(victim, MORE_GUARDIAN))
+        guardian_message(victim);
     if (acid)
     {
         ch->blood[BLOOD_CURRENT] -= UMIN(amount, ch->blood[BLOOD_CURRENT]);
         stc("The stolen blood burns inside you!\n\r", ch);
         /* Final operation: damage/death handling may change character state. */
-        hurt_person(victim, ch, number_range(150, 300) * amount);
+        hurt_person(victim, ch, quietus ? 10000 : number_range(150, 300) * amount);
         return;
     }
     ch->blood[BLOOD_CURRENT] += amount;
     act("A stream of blood flows from $N into you.", ch, NULL, victim, TO_CHAR);
     act("A stream of blood flows from you into $n.", ch, NULL, victim, TO_VICT);
-    if (victim->blood[BLOOD_CURRENT] == 0 && !IS_VAMPIRE(victim))
-        hurt_person(ch, victim, victim->hit + 11);
+    /* This is resource theft, not damage. In particular, the final blood
+     * point must not turn a free cast into an arbitrary-HP execution. */
+}
+
+void do_theftvitae(CHAR_DATA *ch, char *argument)
+{
+    drain_blood(ch, argument, FALSE);
+}
+
+void do_leechblood(CHAR_DATA *ch, char *argument)
+{
+    drain_blood(ch, argument, TRUE);
 }
 
 void do_cauldronblood(CHAR_DATA *ch, char *argument)
@@ -394,7 +423,8 @@ void do_cauldronblood(CHAR_DATA *ch, char *argument)
         stc("You need 50 blood and a victim with blood to boil.\n\r", ch);
         return;
     }
-    amount = UMIN(number_range(10, 20), victim->blood[BLOOD_CURRENT]);
+    amount = number_range(10, 20);
+    amount = UMIN(amount, victim->blood[BLOOD_CURRENT]);
     /* Integer percentage without overflowing max_hit * amount. */
     dam = (victim->max_hit / 100) * amount
         + ((victim->max_hit % 100) * amount) / 100;
@@ -408,9 +438,7 @@ void do_cauldronblood(CHAR_DATA *ch, char *argument)
     act("You boil $N's blood!", ch, NULL, victim, TO_CHAR);
     act("Your blood begins to boil!", ch, NULL, victim, TO_VICT);
     WAIT_STATE(ch, 20);
-    if (victim->blood[BLOOD_CURRENT] == 0 && !IS_VAMPIRE(victim))
-        dam = UMAX(dam, victim->hit + 11);
     /* Use the established combat/death helpers, never raw hit subtraction or
-     * EM's forced vampire execution on blood depletion. No access afterward. */
+     * blood-depletion executions for any class. No access afterward. */
     hurt_person(ch, victim, dam);
 }

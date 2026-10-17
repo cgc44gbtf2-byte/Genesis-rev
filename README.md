@@ -209,7 +209,7 @@ ASan/UBSan. See the class audit for timing, restart and balance limitations.
 Teaching and the five Path of Blood powers are adapted from Ethereal-Mists
 (`EM.zip`, source commit `885604dbca035103ea8bea96e9e40993e2eb00a4`).
 Genesis's discipline numbers, nine supported clan choices, generation table,
-primal training costs and rank-6/7 powers remain intact. This does **not** import
+primal training costs and rank-6/7 availability remain intact. This does **not** import
 EM player files, Ghouls, Gargoyles, hybrid classes, or other disciplines.
 
 Teaching is free and unlocks a discipline at untrained rank `-1`; it does not
@@ -245,9 +245,11 @@ A named hostile target takes precedence over the current opponent; omitting it
 uses the current opponent. Rejected casts do not charge resources or recovery.
 Normal safety/PK/plane/combat checks apply before charging. Obfuscation breaks
 on successful hostile casts. Genesis's acidic Werewolf/Vicissitude blood can
-backfire on Theft. Blood depletion can kill non-Vampires through the existing
-death handler; depleted Vampires retain Genesis's torpor/starvation rules
-rather than EM's forced execution.
+backfire on Theft. Blood depletion does not execute any class: Theft and
+Quietus Leech transfer blood without direct HP damage; Cauldron deals only
+its calculated damage, through the existing death handler. Vampires retain
+Genesis's torpor/starvation rules. All five Thaumaturgy commands and Quietus
+Leech enforce recovery even when invoked indirectly.
 
 **Compatibility adaptations:** base potency derives from Genesis's existing
 generation pools: gen 1 = 10; 2–3 = 8; 4–5 = 5; 6–8 = 4; 9–11 = 3;
@@ -267,3 +269,9 @@ Fortitude, Vampire torpor, buff expiry and real save/load. These are synthetic
 tests, not multiplayer balance proof. If the world has no trained Thaumaturgy
 teacher, an operator must seed the initial rank-3 teacher through existing
 staff tools; no existing account or clan mapping is changed automatically.
+
+The follow-up [Vampire balance audit](deploy/VAMPIRE_BALANCE.md) compares costs,
+timings and damage with the other nine classes. It documents blood conservation,
+the removal of last-blood executions, Quietus Leech hardening, and the remaining
+high-HP/buff-duration playtesting questions. These are not claims of equal
+strength across classes.
