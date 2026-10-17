@@ -176,6 +176,21 @@ static void test_possession(void)
     mob->level = 225;
     command("possession mobile");
     assert(player.familiar == mob && mob->wizard == &actor);
+    CHAR_DATA *other = mobile("other", &home);
+    for (int rank = 3; rank <= 7; ++rank)
+    {
+        player.powers[DISC_DOMINATE] = rank;
+        command("possession other");
+        assert(player.familiar == mob && mob->wizard == &actor && other->wizard == NULL);
+    }
+    SET_BIT(other->extra, EXTRA_ILLUSION);
+    player.powers[DISC_CHIMERSTRY] = 5;
+    command("controlillusion other");
+    assert(player.familiar == mob && other->wizard == NULL);
+    extract_char(mob, TRUE);
+    assert(player.familiar == NULL);
+    command("possession other");
+    assert(player.familiar == other && other->wizard == &actor);
     assert(actor.wait == 0); resources();
 }
 
@@ -216,6 +231,9 @@ static void test_illusions(void)
     CHAR_DATA *other = mobile("other", &home); SET_BIT(other->extra, EXTRA_ILLUSION);
     command("controlillusion other");
     assert(player.familiar == mob && other->wizard == NULL);
+    player.powers[DISC_DOMINATE] = 3;
+    command("possession other");
+    assert(player.familiar == mob && mob->wizard == &actor && other->wizard == NULL);
     assert(actor.wait == 0); resources();
 }
 

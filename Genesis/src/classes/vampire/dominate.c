@@ -56,6 +56,13 @@ void do_possession( CHAR_DATA *ch, char *argument )
 	return;
     }
 
+    /* The reciprocal wizard/familiar link must have a single owner. */
+    if (ch->pcdata->familiar != NULL)
+    {
+	send_to_char( "Nothing happens.\n\r", ch );
+	return;
+    }
+
     if ( ( victim = get_char_room( ch, arg ) ) == NULL )
     {
 	send_to_char( "They aren't here.\n\r", ch );

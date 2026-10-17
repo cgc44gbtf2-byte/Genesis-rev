@@ -50,6 +50,8 @@ this extraction.
 Seven more handlers have byte-identical bodies relative to pre-extraction head
 `0f6598af956132dce3ec8070311eabcdfbc90a34`. The rest of `clan.c` differs only by
 their removal and blank lines. The existing copyright notices are retained.
+This describes the mechanical extraction commit; the separate Possession
+hardening commit below intentionally adds one ownership guard.
 
 | Owner | Existing handlers moved |
 | --- | --- |
@@ -72,10 +74,21 @@ multi-class illusion helpers. Serpent and the other transformations remain
 for a separate lifecycle review: `clear_stats()` can trigger autosaving and
 must not be treated as a harmless local flag reset.
 
-This mechanical stage also exposed an existing Possession ownership issue:
-unlike Control Illusion, it does not reject an already-bound caster. A synthetic
-real-engine probe reproduced retargeting while the first NPC still points to
-the caster. That is separate hardening work, not an intended balance rule.
+### Separate hardening: reciprocal familiar ownership
+
+The mechanical stage exposed an existing Possession ownership bug: unlike
+Control Illusion, it allowed an already-bound caster to retarget. A synthetic
+real-engine probe reproduced the first NPC retaining its `wizard` pointer
+after the caster's `familiar` pointer changed to a second NPC.
+
+A separate commit rejects Possession when `pcdata->familiar` is non-null,
+preserving the current pair rather than silently dropping or destroying the
+first familiar. It does not add new costs or change rank/level thresholds.
+The regression failed against the original implementation, then passed with
+the guard. Tests cover ranks 3–7, both Possession/Control Illusion ownership
+directions and successful rebinding once NPC extraction clears the first pair.
+This prevents the reproduced orphan binding; it is not a claim that every
+familiar/session/logout lifecycle edge case has been audited.
 
 ### Current class-source ownership
 

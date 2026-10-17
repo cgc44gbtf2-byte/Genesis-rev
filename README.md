@@ -315,3 +315,8 @@ gates, group invisibility, summoning consent/room restrictions, NPC bindings,
 actual illusion creation and the five-follower cap. Shared commands and
 transformation/autosave helpers remain in `clan.c`; no save migration or
 numerical rebalance is bundled with the extraction.
+
+A separate hardening change rejects Possession while the caster already has
+a familiar, matching Control Illusion's existing rule. Previously retargeting
+overwrote the caster's pointer but left the first NPC bound. Regression tests
+cover Dominate ranks 3–7, cross-power bindings and rebinding after NPC removal.
