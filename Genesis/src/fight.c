@@ -1657,16 +1657,17 @@ void dam_message( CHAR_DATA *ch, CHAR_DATA *victim, long dam, long type, char *m
     char buf1a[512], buf1b[512], buf2[512], buf3[512];
     const char *verb;
     const char *vs;
-    char dammess[MIL];
+    const char *dammess = mess != NULL ? mess : "attack";
     long vrand = number_range(0, 2);
 
-    if (dam <= 50) vs = " lightly.";
-    else if (dam <= 250) vs = ".";
+    /* Gathering wording compressed into Genesis's unchanged seven bands. */
+    if (dam <= 50) vs = " like a wimp.";
+    else if (dam <= 250) vs = " lightly.";
     else if (dam <= 500) vs = " hard.";
-    else if (dam <= 1000) vs = " very hard!";
-    else if (dam <= 2500) vs = " extremely hard!";
-    else if (dam <= 5000) vs = " incredibly hard!";
-    else vs = " impossibly hard!!";
+    else if (dam <= 1000) vs = " incredibly hard!";
+    else if (dam <= 2500) vs = " with ULTIMATE power!";
+    else if (dam <= 5000) vs = " with UNGODLY vengeance!";
+    else vs = " with UNMERCIFUL strength!!";
 
     switch(type)
     {
@@ -1698,12 +1699,10 @@ void dam_message( CHAR_DATA *ch, CHAR_DATA *victim, long dam, long type, char *m
 				break;
     }
 
-    strcpy(dammess, mess);
-
-    sprintf(buf1a, "$n's %s %s $t%s", dammess, verb, vs);
-    sprintf(buf1b, "$n's %s %s $t%s [#0%li#n]", dammess, verb, vs, dam);
-    sprintf(buf2, "Your %s %s $N%s [#g%li#n]", dammess, verb, vs, dam);
-    sprintf(buf3, "$n's %s %s you%s [#r%li#n]", dammess, verb, vs, dam);
+    snprintf(buf1a, sizeof(buf1a), "$n's %s %s $t%s", dammess, verb, vs);
+    snprintf(buf1b, sizeof(buf1b), "$n's %s %s $t%s [#0%li#n]", dammess, verb, vs, dam);
+    snprintf(buf2, sizeof(buf2), "Your %s %s $N%s [#g%li#n]", dammess, verb, vs, dam);
+    snprintf(buf3, sizeof(buf3), "$n's %s %s you%s [#r%li#n]", dammess, verb, vs, dam);
 
     for (rch = ch->in_room->people; rch != NULL; rch = rch->next_in_room)
     {

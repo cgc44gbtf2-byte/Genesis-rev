@@ -296,7 +296,7 @@ costs, ranks, skill slots, player-data layout or hybrid availability change.
 See [class ownership and the remaining cleanup stages](deploy/CLASS_LAYOUT.md)
 for the ten-class map, shared engine hooks and the separate saved-field
 migration work. `make test` now includes ten layout checks alongside
-18 C suites; `python3 tests/test_catalog.py` runs ten additional catalog checks.
+19 C suites; `python3 tests/test_catalog.py` runs ten additional catalog checks.
 Runtime optimization remains measurement-driven, not an assumed benefit of
 file organization.
 
@@ -320,3 +320,28 @@ A separate hardening change rejects Possession while the caster already has
 a familiar, matching Control Illusion's existing rule. Previously retargeting
 overwrote the caster's pointer but left the first NPC bound. Regression tests
 cover Dominate ranks 3–7, cross-power bindings and rebinding after NPC removal.
+
+## Combat damage wording
+
+Gathering's wording is compressed into Genesis's existing seven damage bands;
+no thresholds, damage calculations, verbs, class costs or recovery rules change.
+
+| Damage passed to the formatter | Severity suffix |
+| --- | --- |
+| 0–50 | like a wimp. |
+| 51–250 | lightly. |
+| 251–500 | hard. |
+| 501–1,000 | incredibly hard! |
+| 1,001–2,500 | with ULTIMATE power! |
+| 2,501–5,000 | with UNGODLY vengeance! |
+| 5,001+ | with UNMERCIFUL strength!! |
+
+Genesis's existing zero-damage formatter behavior remains in the first band;
+this does not introduce a miss tier or change the separate avoidance logic.
+The extra Gathering tiers are not imported. Numeric damage visibility stays
+unchanged for attackers, victims and observers using `PLR_SDAM`.
+Message formatting is bounded so long weapon/power names cannot overflow the
+local display buffers; a missing name displays as `attack`.
+The nineteenth full-engine suite checks both sides of every threshold, all
+six damage types, all four recipient modes, unchanged actor resources/state,
+and oversized/missing names under normal and sanitizer builds.
