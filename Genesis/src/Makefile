@@ -9,7 +9,7 @@ ifeq ($(MEMWATCH),1)
 CPPFLAGS += -DMEMWATCH
 endif
 
-O_FILES = act_comm.o act_info.o act_move.o act_obj.o act_wiz.o bit.o board.o \
+O_FILES = atomic_save.o act_comm.o act_info.o act_move.o act_obj.o act_wiz.o bit.o board.o \
 	  clan.o clearclass.o comm.o const.o core.o db.o disc.o dragon.o \
 	  drow.o elemental.o fight.o flag.o handler.o highland.o interp.o \
 	  kav_info.o kav_wiz.o mage.o magic.o memwatch.o monk.o more.o ninja.o \

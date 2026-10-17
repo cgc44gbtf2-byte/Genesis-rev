@@ -33,6 +33,7 @@
 #include <time.h>
 #include <malloc.h>
 #include "merc.h"
+#include "atomic_save.h"
 
 #if !defined(macintosh)
 extern	long	_filbuf		args( (FILE *) );
@@ -90,76 +91,80 @@ void	fread_tiny_obj	args( ( CHAR_DATA *ch,  FILE *fp ) );
 /*
  * Save a character and inventory.
  */
-void save_char_obj( CHAR_DATA *ch )
+static int write_player_save(FILE *fp, void *context)
 {
-    char strsave[MAX_STRING_LENGTH];
-    FILE *fp;
+    CHAR_DATA *ch = context;
+    fwrite_char(ch, fp);
+    if (ch->carrying != NULL)
+        fwrite_obj(ch, ch->carrying, fp, 0);
+    return fprintf(fp, "#END\n") < 0 || ferror(fp) ? -1 : 0;
+}
+
+static void save_player_atomic(CHAR_DATA *ch, const char *directory)
+{
+    struct atomic_save_error error;
+    enum atomic_save_result result;
+    char message[MAX_STRING_LENGTH];
+    char name[256];
+    size_t i;
 
     if ( IS_NPC(ch) || ch->level < 2 )
-	return;
+        return;
 
     if ( ch->desc != NULL && ch->desc->connected != CON_PLAYING )
-	return;
+        return;
 
     if ( ch->desc != NULL && ch->desc->original != NULL )
-	ch = ch->desc->original;
+        ch = ch->desc->original;
 
+    /* Validate before capitalization or construction of any filesystem path.
+     * Match capitalize()'s ASCII spelling without its shared static buffer. */
+    if (!atomic_save_name_valid(ch->name))
+    {
+        bug("Player save rejected: invalid player filename", 0);
+        return;
+    }
+    for (i = 0; ch->name[i] != '\0'; ++i)
+    {
+        unsigned char c = (unsigned char)ch->name[i];
+        name[i] = i == 0 ? UPPER(c) : LOWER(c);
+    }
+    name[i] = '\0';
     ch->save_time = current_time;
-    fflush( fpReserve );
-    fclose( fpReserve );
-    sprintf( strsave, "%s%s", PLAYER_DIR, capitalize( ch->name ) );
-    if ( ( fp = fopen( strsave, "w" ) ) == NULL )
+    if (fpReserve != NULL)
     {
-	bug( "Save_char_obj: fopen", 0 );
-	perror( strsave );
+        fclose(fpReserve);
+        fpReserve = NULL;
     }
-    else
-    {
-	fwrite_char( ch, fp );
-	if ( ch->carrying != NULL ) fwrite_obj( ch, ch->carrying, fp, 0 );
-	fprintf( fp, "#END\n" );
-    }
-    fflush( fp );
-    fclose( fp );
+    result = atomic_save(directory, name, write_player_save, ch, &error);
     fpReserve = fopen( NULL_FILE, "r" );
+    if (fpReserve == NULL)
+        bug("Player save: could not reopen reserve file", 0);
+    if (result != ATOMIC_SAVE_OK)
+    {
+        /* No player name, serialized data or player path goes to diagnostics. */
+        snprintf(message, sizeof(message), "%s save: %s: %s",
+                 strcmp(directory, BACKUP_DIR) == 0 ? "Backup" : "Player",
+                 error.stage, strerror(error.number));
+        bug(message, 0);
+        if (error.cleanup_number != 0)
+        {
+            snprintf(message, sizeof(message),
+                     "Player save: temporary cleanup failed: %s",
+                     strerror(error.cleanup_number));
+            bug(message, 0);
+        }
+    }
+}
 
-    return;
+void save_char_obj( CHAR_DATA *ch )
+{
+    save_player_atomic(ch, PLAYER_DIR);
 }
 
 void save_char_obj_backup( CHAR_DATA *ch )
 {
-    char strsave[MAX_STRING_LENGTH];
-    FILE *fp;
-
-    if ( IS_NPC(ch) || ch->level < 2 )
-	return;
-
-    if ( ch->desc != NULL && ch->desc->connected != CON_PLAYING )
-	return;
-
-    if ( ch->desc != NULL && ch->desc->original != NULL )
-	ch = ch->desc->original;
-
-    ch->save_time = current_time;
-    fflush( fpReserve );
-    fclose( fpReserve );
-    sprintf( strsave, "%s%s", BACKUP_DIR, capitalize( ch->name ) );
-    if ( ( fp = fopen( strsave, "w" ) ) == NULL )
-    {
-	bug( "Save_char_obj_backup: fopen", 0 );
-	perror( strsave );
-    }
-    else
-    {
-	fwrite_char( ch, fp );
-	if ( ch->carrying != NULL ) fwrite_obj( ch, ch->carrying, fp, 0 );
-	fprintf( fp, "#END\n" );
-    }
-    fflush( fp );
-    fclose( fp );
-    fpReserve = fopen( NULL_FILE, "r" );
-
-    return;
+    save_player_atomic(ch, BACKUP_DIR);
 }
 
 /*

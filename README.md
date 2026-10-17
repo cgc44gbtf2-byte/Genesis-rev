@@ -89,8 +89,8 @@ on all interfaces by default; restrict access with the host firewall.
 
 ## Verification and remaining scope
 
-Four isolated regression suites cover network/authentication, data readers,
-editor/command buffer boundaries,
+Six isolated regression suites cover network/authentication, data readers,
+editor/command buffer boundaries, atomic player saves and signal handling,
 and gameplay fixes. Normal and ASan/UBSan suites passed locally. The complete
 server compiled and booted with original area/help data in an isolated
 runtime, and returned a TCP greeting. No live player data was loaded.
@@ -98,7 +98,7 @@ runtime, and returned a TCP greeting. No live player data was loaded.
 This is not a claim that the entire legacy game is secure or bug-free.
 Compiler warnings still identify legacy formatting/size risks and unused
 variables. Other
-gameplay paths, persistence under disk failure, privileged commands and
+gameplay paths, non-player persistence, privileged commands and
 long-running multiplayer behavior require further work. Some unflagged
 legacy plaintext passwords resembling encoded hashes are deliberately
 rejected; affected accounts require an operator-assisted reset.
@@ -119,11 +119,44 @@ full inventory. Modern hashes are not regenerated on every login.
 Back up player files before upgrading. After migration, use only this
 yescrypt-capable build; historical binaries are not a supported rollback.
 Legacy DES verifies only its historical password prefix; users should
-change their password after migration. Existing save eligibility and disk
-error handling remain unchanged: migration does not make persistence atomic
-or guarantee durability when the filesystem fails.
+change their password after migration. Existing autosave eligibility
+remains unchanged. Player-file writes now use the atomic save
+path described below, but disk failures can still prevent a migration from
+being persisted.
 
 The second pass also bounds capitalization and command tokens, repairs
 editor empty-string/overflow cases, prevents shared-string mutation and
 replacement leaks, terminates end-of-line reads at EOF, and replaces the
 bug logger's unsafe arbitrary printf interpretation with bounded formatting.
+
+## Atomic saves and systemd
+
+Primary and backup player saves now use same-directory exclusive temporary
+files with mode 0600, checked serialization/flush/file sync/close, atomic
+rename, then directory sync. Pre-rename failures preserve the previous
+save. A directory-sync failure after rename is reported as uncertain
+durability: the new file is visible, but survival across power loss is not
+guaranteed. Abrupt death can leave `.save-*` temporary files; they are not
+loaded as player names. Backups and primary saves are individually atomic,
+not a single transaction.
+
+Player and backup directories must be owned by the service user and must
+not be group/world writable. Symlink directories/targets are rejected;
+keep ancestor directories trusted too. This prevents unsafe deployments
+from silently weakening file protection. Inspect permissions when migrating
+an older installation.
+
+SIGTERM/SIGINT now request shutdown in the main loop, which saves fully
+loaded players and closes connections before a normal exit. Fatal signals
+do not attempt unsafe emergency saves. A forced kill or power failure can
+still lose changes since the most recent successful save.
+
+See [Debian/Ubuntu installation](deploy/INSTALL.md) and the reviewed
+[systemd unit](deploy/anathema.service). They use a dedicated unprivileged
+account, a root-owned read-only executable and restricted writable data
+directories. No service is installed or enabled by this repository.
+
+CI validates the unit without starting systemd, runs six normal/sanitizer
+suites, and boots an isolated world then verifies a clean SIGTERM exit.
+Unit validation does not prove the sandbox or service operates correctly
+on every host; follow the installation guide's host-level checks.

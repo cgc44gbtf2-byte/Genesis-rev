@@ -18,11 +18,17 @@ jobs:
     container: ${{ matrix.image }}
     steps:
       - name: Install distro toolchain
-        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates git build-essential libcrypt-dev
+        run: apt-get update && apt-get install -y --no-install-recommends ca-certificates git build-essential libcrypt-dev systemd python3
       - uses: actions/checkout@v4
       - name: Build
         run: make -j2
+      - name: Validate systemd unit (does not start service)
+        run: |
+          install -D -m 0755 Genesis/src/merc /opt/anathema/src/merc
+          systemd-analyze verify deploy/anathema.service
       - name: Regression tests
         run: make test
+      - name: Isolated boot and graceful stop
+        run: python3 tests/smoke_shutdown.py
       - name: Address and undefined-behavior sanitizers
         run: make sanitize

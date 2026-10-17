@@ -1,0 +1,52 @@
+[Unit]
+Description=Godwars Anathema MUD
+Documentation=file:/opt/anathema/deploy/INSTALL.md
+After=network.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=anathema
+Group=anathema
+WorkingDirectory=/var/lib/anathema/area
+ExecStart=/opt/anathema/src/merc 4000
+# Copyover execs ../src/merc in place, retaining the PID and open sockets.
+# Do not add socket activation, PrivateNetwork, or an exec-denying sandbox.
+Restart=on-failure
+RestartSec=10s
+KillSignal=SIGTERM
+KillMode=control-group
+# TERM requests normal-loop saving; a hung process is killed after this limit.
+TimeoutStopSec=60s
+UMask=0077
+# The select() loop uses FD_SETSIZE, not an unbounded descriptor set.
+LimitNOFILE=1024
+LimitCORE=0
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=anathema
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+# Keep the root-owned parent and src symlink read-only. Area files are mutable:
+# OLC, ban/disable lists, leader.txt, shutdown.txt, and copyover.data live there.
+ReadWritePaths=/var/lib/anathema/area
+ReadWritePaths=/var/lib/anathema/player /var/lib/anathema/backup
+ReadWritePaths=/var/lib/anathema/notes /var/lib/anathema/log
+
+[Install]
+WantedBy=multi-user.target

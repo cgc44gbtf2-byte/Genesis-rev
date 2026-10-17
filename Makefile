@@ -2,7 +2,7 @@ CC ?= cc
 LDLIBS ?= -lcrypt
 TEST_FLAGS = -std=gnu17 -O1 -g -ffunction-sections -fdata-sections
 TEST_LDFLAGS = -Wl,--gc-sections
-TESTS = tests/test_comm tests/test_db tests/test_gameplay tests/test_buffers
+TESTS = tests/test_comm tests/test_db tests/test_gameplay tests/test_buffers tests/test_save tests/test_signals
 
 .PHONY: all test sanitize clean
 all:
@@ -17,6 +17,9 @@ tests/test_gameplay: tests/test_gameplay.c $(wildcard Genesis/src/*.c Genesis/sr
 tests/test_buffers: tests/test_buffers.c $(wildcard Genesis/src/*.c Genesis/src/*.h)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_FLAGS) --param=asan-globals=0 -c Genesis/src/interp.c -o tests/buffers_interp.o
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_FLAGS) $< Genesis/src/string.c tests/buffers_interp.o $(LDFLAGS) $(TEST_LDFLAGS) -o $@
+
+tests/test_signals: tests/test_signals.c $(wildcard Genesis/src/*.c Genesis/src/*.h)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(TEST_FLAGS) $< Genesis/src/signals.c $(LDFLAGS) $(TEST_LDFLAGS) $(LDLIBS) -o $@
 
 test: $(TESTS)
 	@set -e; for t in $(TESTS); do ./$$t; done

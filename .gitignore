@@ -5,6 +5,8 @@ tests/test_comm
 tests/test_db
 tests/test_gameplay
 tests/test_buffers
+tests/test_save
+tests/test_signals
 Genesis/player/
 Genesis/backup/
 Genesis/log/

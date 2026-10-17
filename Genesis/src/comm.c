@@ -88,6 +88,7 @@ extern	int	malloc_verify	args( ( void ) );
 #include <signal.h>
 #include <unistd.h>
 #include <sys/resource.h>	/* for RLIMIT_NOFILE */
+extern volatile sig_atomic_t shutdown_requested;
 #endif
 
 #if defined(apollo)
@@ -362,44 +363,6 @@ void	bust_a_prompt		args( ( DESCRIPTOR_DATA *d ) );
 
 
 
-void handler( long s )
-{
-    CHAR_DATA *vch;
-    CHAR_DATA *vch_next;
-
-    for ( vch = char_list; vch != NULL; vch = vch_next )
-    {
-        vch_next = vch->next;
-
-        if ( !IS_NPC(vch) )
-        {
-            do_call( vch, "all" );
-            do_save( vch, "" );
-            attempt_copyover();
-            send_to_char("The mud has crashed.  Please reconnect in 15 seconds.\n\r", vch );
-            do_autosave( vch, "" );
-            if ( vch->desc ) close_socket2( vch->desc );
-        }
-    }
-
-    switch ( s )
-    {
-        case SIGBUS:
-            bug( "Bus error signal.", 0 );
-            break;
-        case SIGSEGV:
-            bug( "Segmentation violation signal.", 0 );
-            break;
-        case SIGILL:
-            bug( "Illegal Instruction signal.", 0 );
-            break;
-        default:
-            bug( "Unrecognised signal.", 0 );
-            break;
-    }
-    exit(1);
-}
-
 /* Needs to be global because of do_copyover */
 int port, control;
 
@@ -520,7 +483,7 @@ int init_socket( int port )
 {
     static struct sockaddr_in sa_zero;
     struct sockaddr_in sa;
-    long x;
+    int x = 1;
     long fd;
 
     if ( ( fd = socket( AF_INET, SOCK_STREAM, 0 ) ) < 0 )
@@ -778,21 +741,60 @@ void excessive_cpu(long blx)
     exit(1);
 }
 
+/*
+ * char_list contains world characters, not the partial password/MOTD shells.
+ * Save link-dead players and switched originals too, but never login shells.
+ * Editors/notes are fully loaded states; detach the descriptor temporarily so
+ * save_char_obj's normal login-state guard does not skip these players or
+ * redirect a save through a switched descriptor. Restore it before closing.
+ * This is normal execution only, never signal-handler or fatal-crash recovery.
+ */
+static void save_shutdown_players( void )
+{
+    CHAR_DATA *ch;
+
+    for ( ch = char_list; ch != NULL; ch = ch->next )
+    {
+        DESCRIPTOR_DATA *d = ch->desc;
+
+        if ( IS_NPC(ch) || ch->pcdata == NULL || ch->in_room == NULL
+        || ch->name == NULL || ch->name[0] == '\0' || ch->level < 2 )
+            continue;
+        if ( d != NULL && d->connected != CON_PLAYING
+        && d->connected != CON_AEDITOR && d->connected != CON_REDITOR
+        && d->connected != CON_OEDITOR && d->connected != CON_MEDITOR
+        && !(d->connected >= CON_NOTE_TO && d->connected <= CON_NOTE_FINISH) )
+            continue;
+
+        ch->desc = NULL;
+        save_char_obj( ch );
+        ch->desc = d;
+    }
+}
+
+static void shutdown_from_signal( void )
+{
+    merc_down = TRUE;
+    log_string( "Stop signal received: saving loaded players and closing connections." );
+    save_shutdown_players();
+    while ( descriptor_list != NULL )
+    {
+        /* Do not generate prompts or wait for queued output during stop. */
+        descriptor_list->outtop = 0;
+        close_socket( descriptor_list );
+    }
+}
+
 void game_loop_unix( int control )
 {
     static struct timeval null_time;
     struct timeval last_time;
 
-    signal( SIGBUS,  (void *) handler );
-    signal( SIGSEGV, (void *) handler );
-    signal( SIGILL,  (void *) handler );
-
-    signal( SIGPIPE, SIG_IGN );
     gettimeofday( &last_time, NULL );
     current_time = (time_t) last_time.tv_sec;
 
     /* Main loop */
-    while ( !merc_down )
+    while ( !merc_down && !shutdown_requested )
     {
 	fd_set in_set;
 	fd_set out_set;
@@ -824,9 +826,14 @@ void game_loop_unix( int control )
 
 	if ( select( maxdesc+1, &in_set, &out_set, &exc_set, &null_time ) < 0 )
 	{
+	    /* select's sets are unspecified after EINTR; rebuild next loop. */
+	    if ( errno == EINTR )
+		continue;
 	    perror( "Game_loop: select: poll" );
 	    exit( 1 );
 	}
+	if ( shutdown_requested )
+	    break;
 
 	/*
 	 * New connection?
@@ -979,7 +986,11 @@ void game_loop_unix( int control )
 
 		stall_time.tv_usec = usecDelta;
 		stall_time.tv_sec  = secDelta;
-		if ( select( 0, NULL, NULL, NULL, &stall_time ) < 0 )
+		/* EINTR ends this pulse's sleep, not the server. The next
+		 * loop check handles a stop, or resumes after other signals.
+		 */
+		if ( !shutdown_requested
+		&& select( 0, NULL, NULL, NULL, &stall_time ) < 0 && errno != EINTR )
 		{
 		    perror( "Game_loop: select: stall" );
 		    exit( 1 );
@@ -990,6 +1001,9 @@ void game_loop_unix( int control )
 	gettimeofday( &last_time, NULL );
 	current_time = (time_t) last_time.tv_sec;
     }
+
+    if ( shutdown_requested )
+        shutdown_from_signal();
 
     return;
 }

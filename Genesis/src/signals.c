@@ -15,49 +15,51 @@
 
 extern	int	control, port;
 
-bool	write_to_descriptor	args( ( int desc, char *txt, int length ) );
+bool	write_to_descriptor	args( ( long desc, char *txt, long length ) );
 void	attempt_copyover( void );
-void	crash_notice( int );
+
+/* Only the normal game loop may inspect players or save/close anything.
+ * Repeated stop requests never force an unsafe save.
+ */
+volatile sig_atomic_t shutdown_requested = 0;
+
+static void request_shutdown( int sig )
+{
+    shutdown_requested = 1;
+}
+
+static void install_signal( int sig, void (*handler)(int) )
+{
+    struct sigaction action;
+
+    memset( &action, 0, sizeof(action) );
+    action.sa_handler = handler;
+    sigemptyset( &action.sa_mask );
+    /* No SA_RESTART: a stop should interrupt the game's select sleep. */
+    if ( sigaction( sig, &action, NULL ) < 0 )
+    {
+        perror( "init_signals: sigaction" );
+        exit( 1 );
+    }
+}
 
 void init_signals( void )
 {
-    signal(SIGPFILE,	crash_notice);
-    signal(SIGFPE,	crash_notice);
-    signal(SIGINT,	crash_notice);
-    signal(SIGHUP,	crash_notice);
-    signal(SIGSEGV,	crash_notice);
-    signal(SIGTERM,	crash_notice);
-    signal(SIGIO,	crash_notice);
-    signal(SIGPIPE,	crash_notice);
-    signal(SIGTRAP,	crash_notice);
-    return;
-}
+    install_signal( SIGTERM, request_shutdown );
+    install_signal( SIGINT, request_shutdown );
+    install_signal( SIGPIPE, SIG_IGN );
 
-
-void crash_notice( int sig )
-{
-    DESCRIPTOR_DATA *d;
-    DESCRIPTOR_DATA *d_next;
-
-    for (d = descriptor_list; d; d = d->next)
-	if (d->character && d->connected <= CON_PLAYING) do_wake(d->character, "");
-    for (d = descriptor_list; d; d = d->next)
-	if (d->character && d->connected <= CON_PLAYING) do_call(d->character, "all");
-    for (d = descriptor_list; d; d = d->next)
-	if (d->character && d->connected <= CON_PLAYING) do_save(d->character, "");
-
-    for (d = descriptor_list; d; d = d_next)
-    {
-	d_next = d->next;
-
-	if (d->character)
-	    stc("GW: Genesis is about to crash. Hold on tight.. \n\r", d->character);
-	else
-	    write_to_descriptor(d->descriptor, "We are about to crash. Hold on..", 0);
-
-	close_socket(d);
-    }
-    abort();
+    /* Corrupted state cannot safely be saved or copied over. Fatal signals
+     * keep OS termination/core-dump semantics. SIGHUP/SIGIO are not graceful
+     * stop requests; SIGPFILE (77) is not an OS signal. No gameplay, stdio,
+     * allocator or exit runs in a handler.
+     */
+    install_signal( SIGBUS, SIG_DFL );
+    install_signal( SIGSEGV, SIG_DFL );
+    install_signal( SIGILL, SIG_DFL );
+    install_signal( SIGFPE, SIG_DFL );
+    install_signal( SIGTRAP, SIG_DFL );
+    install_signal( SIGABRT, SIG_DFL );
 }
 
 void attempt_copyover( void )
