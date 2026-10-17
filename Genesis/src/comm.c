@@ -1897,13 +1897,14 @@ static bool password_set( CHAR_DATA *ch, const char *argument )
 }
 
 /*
- * Only call on the final character, after reconnect/takeover or full load.
+ * Only call on the actual player, selected before reconnect/takeover or
+ * after a full load; switched descriptors authenticate their original.
  * Saving a load_char_short() shell would discard inventory. Keep the pending
  * save on the descriptor until CON_PLAYING, as save_char_obj requires.
  */
 static bool password_upgrade( DESCRIPTOR_DATA *d, const char *argument )
 {
-    CHAR_DATA *ch = d->character;
+    CHAR_DATA *ch = d->original ? d->original : d->character;
 
     if ( ch == NULL || ch->pcdata == NULL ||
          !password_matches(argument, ch->pcdata->pwd,
@@ -1928,11 +1929,46 @@ static void password_save_if_ready( DESCRIPTOR_DATA *d )
 {
     if ( d->password_save_pending && d->connected == CON_PLAYING )
     {
-        do_autosave(d->character, "");
-        d->password_save_pending = FALSE;
+        CHAR_DATA *ch = d->original ? d->original : d->character;
+        if ( save_char_obj_checked(ch) )
+            d->password_save_pending = FALSE;
     }
 }
 
+/* Validate and prepare the live player's hash before changing any ownership.
+ * The short-login shell can be stale (notably after a failed disk save).
+ * Never let that stale password disconnect an authenticated live session. */
+static bool password_prepare_live( DESCRIPTOR_DATA *d, const char *argument )
+{
+    CHAR_DATA *ch;
+    DESCRIPTOR_DATA *old;
+    DESCRIPTOR_DATA candidate = {0};
+
+    for ( ch = char_list; ch != NULL; ch = ch->next )
+        if ( !IS_NPC(ch) && !IS_EXTRA(ch, EXTRA_SWITCH) &&
+             ch->desc == NULL && !str_cmp(d->character->name, ch->name) )
+            break;
+    if ( ch == NULL )
+        for ( old = descriptor_list; old != NULL; old = old->next )
+            if ( old != d && old->character != NULL &&
+                 old->connected != CON_GET_NAME &&
+                 old->connected != CON_GET_OLD_PASSWORD )
+            {
+                CHAR_DATA *player = old->original ? old->original : old->character;
+                if ( !str_cmp(d->character->name, player->name) )
+                {
+                    ch = player;
+                    break;
+                }
+            }
+    if ( ch == NULL )
+        return TRUE;
+    candidate.character = ch;
+    if ( !password_upgrade(&candidate, argument) )
+        return FALSE;
+    d->password_save_pending |= candidate.password_save_pending;
+    return TRUE;
+}
 
 /*
  * Deal with sockets that haven't logged in yet.
@@ -2093,15 +2129,17 @@ if ( ch == NULL || ch->pcdata == NULL ||
 
 	write_to_buffer( d, echo_on_str, 0 );
 
+if ( !password_prepare_live(d, argument) )
+{
+    write_to_buffer(d, "Password authentication or upgrade failed.\n\r", 0);
+    close_socket(d);
+    return;
+}
+
 	if ( check_reconnect( d, ch->name, TRUE ) ||
 	     check_playing( d, ch->name ) )
         {
-            if ( !password_upgrade(d, argument) )
-            {
-                write_to_buffer(d, "Password upgrade failed. Please try again later.\n\r", 0);
-                close_socket(d);
-                return;
-            }
+            /* The live player was authenticated/upgraded before takeover. */
             password_save_if_ready(d);
             return;
         }
@@ -2567,11 +2605,15 @@ bool check_playing( DESCRIPTOR_DATA *d, char *name )
 	    d->connected = dold->connected;
     d->password_save_pending = d->password_save_pending || dold->password_save_pending;
 	    d->character = dold->character;
+    d->original = dold->original;
 	    d->character->desc = d;
+    if ( d->original != NULL )
+        d->original->desc = NULL; /* Preserve do_switch/do_return ownership. */
 	    send_to_char( "You take over your body, which was already in use.\n\r", d->character );
 	    act( "$n doubles over in agony and $s eyes roll up into $s head.", d->character, NULL, NULL, TO_ROOM );
 	    act( "...$n's body has been taken over by another spirit!", d->character, NULL, NULL, TO_ROOM );
 	    dold->character=NULL;
+    dold->original=NULL;
 	    
 	    sprintf(buf,"Kicking off old connection %s@%s",d->character->name,d->host);
 	    log_string(buf);

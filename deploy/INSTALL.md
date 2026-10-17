@@ -194,9 +194,15 @@ interface and can terminate the process without saving.
   may then SIGKILL. This is not a durability guarantee. Never use SIGKILL as
   the routine shutdown method. Announce maintenance and save in-game first.
 * Save eligibility is unchanged: NPCs and players below level 2 are not saved
-  by `save_char_obj`, and connection-state restrictions still apply. Saves
-  overwrite files directly; there is no transactional/fsync guarantee.
-  Disk-full, permissions and filesystem errors can still lose data.
+  by `save_char_obj`. Normal saves retain connection-state restrictions;
+  graceful shutdown also saves fully loaded players in editors and notes.
+  Player and backup files are each written to a private temporary file,
+  checked and synced, then atomically renamed and the directory synced.
+  Failures before rename preserve the previous file. A directory-sync
+  failure after rename leaves the new file visible but reports uncertain
+  durability. Primary and backup writes are not one transaction.
+  Disk-full, permission errors, forced kills and power loss can still prevent
+  recent changes from being persisted.
   Runtime `backup/` files are not a substitute for independent backups.
 * Save OLC changes explicitly with the in-game `asave` facilities before
   maintenance. Copyover's area-autosave call is commented out in `act_wiz.c`;

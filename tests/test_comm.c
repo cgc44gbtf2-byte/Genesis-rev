@@ -30,10 +30,11 @@ static char *comm_test_gensalt(const char *prefix, unsigned long cost,
 #undef crypt_gensalt_rn
 
 static int read_mode, read_calls, write_mode, write_calls, fail_crypt;
-static int fail_gensalt, saved_passwords;
+static int fail_gensalt, saved_passwords, fail_save;
 static char saved_password[CRYPT_OUTPUT_SIZE];
 static int reported_bugs;
 char log_buf[MAX_STRING_LENGTH];
+CHAR_DATA *char_list;
 
 static ssize_t comm_test_read(int fd, void *buf, size_t count)
 {
@@ -155,6 +156,40 @@ void do_autosave(CHAR_DATA *ch, char *argument)
     assert(strlen(ch->pcdata->pwd) < sizeof(saved_password));
     strcpy(saved_password, ch->pcdata->pwd);
     ++saved_passwords;
+}
+
+bool save_char_obj_checked(CHAR_DATA *ch)
+{
+    if (fail_save || ch->level < 2)
+        return FALSE;
+    assert(!IS_NPC(ch));
+    assert(!strncmp(ch->pcdata->pwd, "$y$", 3));
+    strcpy(saved_password, ch->pcdata->pwd);
+    ++saved_passwords;
+    return TRUE;
+}
+
+bool str_cmp(const char *a, const char *b)
+{
+    return strcasecmp(a, b) != 0;
+}
+
+void free_char(CHAR_DATA *ch)
+{
+    (void)ch; /* Synthetic stack login shell. */
+}
+
+void do_return(CHAR_DATA *ch, char *argument)
+{
+    (void)ch;
+    (void)argument;
+    assert(!"takeover must detach the old descriptor before closing it");
+}
+
+void act(const char *format, CHAR_DATA *ch, const void *a,
+         const void *b, long type)
+{
+    (void)format; (void)ch; (void)a; (void)b; (void)type;
 }
 
 long get_trust(CHAR_DATA *ch)
@@ -346,6 +381,7 @@ static void test_password_migration(void)
     char migrated[CRYPT_OUTPUT_SIZE];
     int i, flag;
 
+    ch.level = 2;
     ch.pcdata = &pc;
     ch.desc = &d;
     d.character = &ch;
@@ -371,6 +407,16 @@ static void test_password_migration(void)
         password_save_if_ready(&d);
         assert(saved_passwords == flag);
         d.connected = CON_PLAYING;
+        ch.level = LEV_SLE; /* This tree's sleeper is level 1, not level 2. */
+        password_save_if_ready(&d);
+        assert(d.password_save_pending);
+        assert(saved_passwords == flag);
+        ch.level = 2;
+        fail_save = 1;
+        password_save_if_ready(&d);
+        assert(d.password_save_pending);
+        assert(saved_passwords == flag);
+        fail_save = 0;
         password_save_if_ready(&d);
         assert(saved_passwords == flag + 1);
         assert(!d.password_save_pending);
@@ -411,6 +457,61 @@ static void test_password_migration(void)
     password_save_if_ready(&d);
     assert(saved_passwords == 3);
     free_string(pc.pwd);
+}
+
+static void test_switched_takeover(void)
+{
+    CHAR_DATA player = {0}, npc = {0}, shell = {0};
+    PC_DATA pc = {0};
+    DESCRIPTOR_DATA old = {0}, incoming = {0};
+    int before = saved_passwords;
+
+    player.name = shell.name = "Synthetic";
+    player.level = 2;
+    player.pcdata = &pc;
+    player.extra = EXTRA_SWITCH;
+    pc.pwd = str_dup(crypt("live-password", "xy"));
+    npc.name = "Syntheticmob";
+    npc.act = ACT_IS_NPC;
+    npc.desc = &old;
+    old.character = &npc;
+    old.original = &player;
+    old.connected = CON_PLAYING;
+    old.descriptor = dup(STDERR_FILENO);
+    old.host = str_dup("synthetic");
+    old.outsize = 4096;
+    old.outbuf = alloc_mem(old.outsize);
+    old.next = &incoming;
+    incoming.character = &shell;
+    incoming.host = "synthetic";
+    incoming.connected = CON_GET_OLD_PASSWORD;
+    incoming.outsize = 4096;
+    incoming.outbuf = alloc_mem(incoming.outsize);
+    descriptor_list = &old;
+    char_list = &player;
+
+    assert(!password_prepare_live(&incoming, "stale-password"));
+    assert(old.character == &npc && npc.desc == &old);
+    fail_gensalt = 1;
+    assert(!password_prepare_live(&incoming, "live-password"));
+    assert(old.original == &player && descriptor_list == &old);
+    fail_gensalt = 0;
+    assert(password_prepare_live(&incoming, "live-password"));
+    assert(check_playing(&incoming, shell.name));
+    assert(incoming.character == &npc && incoming.original == &player);
+    assert(npc.desc == &incoming && player.desc == NULL);
+    assert(old.character == NULL && old.original == NULL);
+    assert(password_upgrade(&incoming, "live-password"));
+    fail_save = 1;
+    password_save_if_ready(&incoming);
+    assert(incoming.password_save_pending && saved_passwords == before);
+    fail_save = 0;
+    password_save_if_ready(&incoming);
+    assert(!incoming.password_save_pending && saved_passwords == before + 1);
+    free(pc.pwd);
+    free(incoming.outbuf);
+    descriptor_list = descriptor_free = NULL;
+    char_list = NULL;
 }
 
 static void test_password_change(void)
@@ -509,6 +610,7 @@ int main(void)
     test_password_migration();
     test_password_change();
     test_prompt_drain();
+    test_switched_takeover();
     puts("comm regressions passed");
     return 0;
 }

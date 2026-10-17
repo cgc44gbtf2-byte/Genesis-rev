@@ -3266,6 +3266,7 @@ void	enhance_stat	args( ( long sn, long level, CHAR_DATA *ch,
 long	get_ratio	args( ( CHAR_DATA *ch ) );
 
 /* save.c */
+bool	save_char_obj_checked	args( ( CHAR_DATA *ch ) );
 void	save_char_obj		args( ( CHAR_DATA *ch ) );
 void	save_char_obj_backup	args( ( CHAR_DATA *ch ) );
 bool	load_char_obj		args( ( DESCRIPTOR_DATA *d, char *name ) );

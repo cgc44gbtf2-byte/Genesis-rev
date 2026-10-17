@@ -112,15 +112,16 @@ hashes. `NOCRYPT` builds are deliberately rejected.
 
 Existing DES and eligible legacy plaintext credentials still verify and
 are upgraded after successful authentication. The fully loaded character
-is saved through the existing autosave path once playing, including
-reconnect/takeover paths; the short login record is never saved over the
-full inventory. Modern hashes are not regenerated on every login.
+is saved through the checked player-save path once playing, including
+level-2 accounts and reconnect/takeover paths. The short login record is
+never saved over the full inventory. A failed write does not clear the
+pending migration flag. Modern hashes are not regenerated on every login.
 
 Back up player files before upgrading. After migration, use only this
 yescrypt-capable build; historical binaries are not a supported rollback.
 Legacy DES verifies only its historical password prefix; users should
-change their password after migration. Existing autosave eligibility
-remains unchanged. Player-file writes now use the atomic save
+change their password after migration. Ordinary autosave eligibility
+remains unchanged; migration uses player-save eligibility. Player-file writes use the atomic save
 path described below, but disk failures can still prevent a migration from
 being persisted.
 

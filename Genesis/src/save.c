@@ -100,7 +100,7 @@ static int write_player_save(FILE *fp, void *context)
     return fprintf(fp, "#END\n") < 0 || ferror(fp) ? -1 : 0;
 }
 
-static void save_player_atomic(CHAR_DATA *ch, const char *directory)
+static bool save_player_atomic(CHAR_DATA *ch, const char *directory)
 {
     struct atomic_save_error error;
     enum atomic_save_result result;
@@ -108,21 +108,24 @@ static void save_player_atomic(CHAR_DATA *ch, const char *directory)
     char name[256];
     size_t i;
 
-    if ( IS_NPC(ch) || ch->level < 2 )
-        return;
+    if ( ch == NULL )
+        return FALSE;
 
     if ( ch->desc != NULL && ch->desc->connected != CON_PLAYING )
-        return;
+        return FALSE;
 
     if ( ch->desc != NULL && ch->desc->original != NULL )
         ch = ch->desc->original;
+
+    if ( IS_NPC(ch) || ch->level < 2 )
+        return FALSE;
 
     /* Validate before capitalization or construction of any filesystem path.
      * Match capitalize()'s ASCII spelling without its shared static buffer. */
     if (!atomic_save_name_valid(ch->name))
     {
         bug("Player save rejected: invalid player filename", 0);
-        return;
+        return FALSE;
     }
     for (i = 0; ch->name[i] != '\0'; ++i)
     {
@@ -155,6 +158,13 @@ static void save_player_atomic(CHAR_DATA *ch, const char *directory)
             bug(message, 0);
         }
     }
+    return result == ATOMIC_SAVE_OK;
+}
+
+/* FALSE includes skipped saves and uncertain durability after rename. */
+bool save_char_obj_checked( CHAR_DATA *ch )
+{
+    return save_player_atomic(ch, PLAYER_DIR);
 }
 
 void save_char_obj( CHAR_DATA *ch )
