@@ -67,7 +67,8 @@ sudo install -d -o root -g root -m 0755 /opt/anathema \
   /opt/anathema/src /opt/anathema/deploy /var/lib/anathema
 sudo install -d -o anathema -g anathema -m 0700 \
   /var/lib/anathema/area /var/lib/anathema/player \
-  /var/lib/anathema/backup /var/lib/anathema/notes /var/lib/anathema/log
+  /var/lib/anathema/backup /var/lib/anathema/notes /var/lib/anathema/log \
+  /var/lib/anathema/clans
 sudo install -o root -g root -m 0755 Genesis/src/merc /opt/anathema/src/merc
 sudo install -o root -g root -m 0644 deploy/INSTALL.md /opt/anathema/deploy/INSTALL.md
 sudo ln -s /opt/anathema/src /var/lib/anathema/src
@@ -75,7 +76,7 @@ sudo ln -s /opt/anathema/src /var/lib/anathema/src
 
 The service must **not** own `/var/lib/anathema` itself, `/opt/anathema`, the
 executable or the symlink. Do not recursively chown `/var/lib/anathema`.
-Only the five runtime subdirectories above are service-writable. The
+Only the six runtime subdirectories above are service-writable. The
 root-owned parent prevents replacing `src` with a malicious copyover target;
 `ProtectSystem=strict` also makes the executable and symlink read-only inside
 the service. Keep all ancestors root-owned and non-group/world-writable.
@@ -89,6 +90,7 @@ The exact relative paths matter:
 | Current working directory; `area.lst` and its listed files | `/var/lib/anathema/area` |
 | `PLAYER_DIR` = `../player/` | `/var/lib/anathema/player` |
 | `BACKUP_DIR` = `../backup/` | `/var/lib/anathema/backup` |
+| Managed clan registry and process lock | `/var/lib/anathema/clans` |
 | Board notes and their archives | `/var/lib/anathema/notes` |
 | Legacy file logs, if used | `/var/lib/anathema/log` |
 | OLC area saves, `area.lst`, `ban.txt`, `disabled.txt`, `leader.txt`, `shutdown.txt` | writable `area/` |

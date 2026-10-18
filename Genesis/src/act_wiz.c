@@ -4143,6 +4143,7 @@ void do_mclear( CHAR_DATA *ch, char *argument )
 	stc("Not on NPC's.\n\r", ch);
 	return;
     }
+    if (clan_block_class_change(victim)) return;
 
     for (obj = victim->carrying; obj != NULL; obj = obj_next)
     {
@@ -4538,7 +4539,7 @@ void do_generation( CHAR_DATA *ch, char *argument )
     if (arg1[0] == '\0' || arg2[0] == '\0')
     {
 	stc("Syntax: generation <char> <generation>.\n\r", ch);
-	stc("Generation 1 is a Master <class> and 2 is clan leader.\n\r", ch);
+stc("Range: 1-13. Class generation is separate from managed clan office.\n\r", ch);
 	return;
     }
 
@@ -4548,12 +4549,18 @@ void do_generation( CHAR_DATA *ch, char *argument )
 	return;
     }
 
-    if (!is_number(arg2))
+    if (IS_NPC(victim) || victim->pcdata == NULL || !is_number(arg2))
     {
 	stc("Generation must be a number.\n\r", ch);
 	return;
     }
-    gen = atoi(arg2);
+    errno = 0;
+    gen = strtol(arg2, NULL, 10);
+    if (errno == ERANGE || gen < 1 || gen > 13)
+    {
+        stc("Generation must be between 1 and 13.\n\r", ch);
+        return;
+    }
 
     victim->vampgen = gen;
     update_gen(victim);
@@ -4620,6 +4627,7 @@ void do_delete( CHAR_DATA *ch, char *argument)
 
 
    if (IS_NPC(ch)) return;
+   if (clan_block_class_change(ch)) return;
    if (IS_BUI(ch))
    {
 	send_to_char("Ask an implementor to delete you!\n\r", ch);

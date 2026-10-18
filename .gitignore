@@ -21,10 +21,12 @@ tests/test_class_handlers
 tests/test_vampire_modules
 tests/test_damage_messages
 tests/test_transformations
+tests/test_clans
 tests/stun_engine/
 Genesis/player/
 Genesis/backup/
 Genesis/log/
 Genesis/notes/
 Genesis/area/
+Genesis/clans/
 memwatch.log

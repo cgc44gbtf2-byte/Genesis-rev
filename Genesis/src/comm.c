@@ -2027,6 +2027,12 @@ void nanny( DESCRIPTOR_DATA *d, char *argument )
 	log_string( kav );
 	fOld = load_char_short( d, argument );
 	ch   = d->character;
+if (!fOld && clan_identity_reserved(argument))
+{
+    write_to_buffer(d, "That name is reserved by clan records; contact staff.\n\r", 0);
+    close_socket(d);
+    return;
+}
 
 	if ( fOld && ch->lasthost != NULL && strlen(ch->lasthost) > 1 &&
 		ch->lasttime != NULL && strlen(ch->lasttime) > 1 )

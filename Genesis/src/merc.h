@@ -2222,6 +2222,8 @@ DECLARE_DO_FUN(	do_autoexit	);
 DECLARE_DO_FUN( do_autofollow   );
 DECLARE_DO_FUN(	do_autosearch	);
 DECLARE_DO_FUN(	do_autosave	);
+DECLARE_DO_FUN(  do_clan         );
+DECLARE_DO_FUN(  do_clanadmin    );
 DECLARE_DO_FUN( do_autostance	);
 DECLARE_DO_FUN(	do_awe		);
 DECLARE_DO_FUN(	do_baal		);
@@ -3317,6 +3319,15 @@ void	clear_stats	args( ( CHAR_DATA *ch ) );
 /* transformation.c */
 /* Stat/equipment cleanup only; finish the transformation before autosaving. */
 void	reset_form_stats args( ( CHAR_DATA *ch ) );
+
+/* clans.c: persistent governance, independent of class power progression. */
+bool clan_load_registry(void);
+void clan_registry_close(void);
+void clan_sync_player(CHAR_DATA *ch);
+bool clan_block_class_change(CHAR_DATA *ch);
+bool clan_identity_reserved(const char *name);
+bool clan_block_name_change(CHAR_DATA *ch, const char *label);
+void clan_legacy(CHAR_DATA *ch, const char *action, char *argument);
 
 /* clan.c */
 void	vamp_rage	args( ( CHAR_DATA *ch ) );

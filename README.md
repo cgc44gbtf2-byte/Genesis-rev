@@ -1,5 +1,10 @@
 # Godwars: Anathema
 
+Managed class-clan governance is documented in
+[deploy/CLAN_MANAGEMENT.md](deploy/CLAN_MANAGEMENT.md). Staff adoption is
+required before legacy clan-management aliases confer authority. Offices are
+independent of class power ranks; existing titles and Covenants are unchanged.
+
 Reliability and modernization branch of Genesis (God Wars MUD).
 The Git branch is `Godwars-Anathema`: Git does not allow spaces or colons
 in branch names.
@@ -296,7 +301,7 @@ costs, ranks, skill slots, player-data layout or hybrid availability change.
 See [class ownership and the remaining cleanup stages](deploy/CLASS_LAYOUT.md)
 for the ten-class map, shared engine hooks and the separate saved-field
 migration work. `make test` now includes ten layout checks alongside
-20 C suites; `python3 tests/test_catalog.py` runs ten additional catalog checks.
+21 C suites; `python3 tests/test_catalog.py` runs ten additional catalog checks.
 Runtime optimization remains measurement-driven, not an assumed benefit of
 file organization.
 

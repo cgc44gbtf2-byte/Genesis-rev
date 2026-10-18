@@ -11,91 +11,20 @@
 
 void do_dinduct( CHAR_DATA *ch, char *argument )
 {
-    CHAR_DATA *victim;
-    char arg[MIL];
-
-    one_argument(argument, arg);
-
-    if (!IS_DROW(ch) || ch->vampgen > 3)
-    {
-	stc("Huh?\n\r", ch);
-	return;
-    }
-
-    if (arg[0] == '\0' || (victim = get_char_room(ch,arg)) == NULL)
-    {
-	stc("Induct whom?.\n\r", ch);
-	return;
-    }
-
-    if (!IS_DROW(victim) || strlen(victim->clan) != 0 || !IS_EXTRA(victim, EXTRA_VAMPIRE))
-    {
-	stc("You failed.\n\r", ch);
-	return;
-    }
-
-    act("You bring $N into your house.", ch, NULL, victim, TO_CHAR);
-    act("$n brings $N into $s house.", ch, NULL, victim, TO_NOTVICT);
-    act("$n brings you into $s house.", ch, NULL, victim, TO_VICT);
-
-    free_string(victim->clan);
-    victim->clan = str_dup(ch->clan);
-    victim->vampgen = 5;
-    do_save(victim,"");
-
-    return;
+    if (!IS_DROW(ch)) { stc("Huh?\n\r", ch); return; }
+    clan_legacy(ch, "invite", argument);
 }
 
 void do_promotion(CHAR_DATA *ch, char *argument )
 {
-    CHAR_DATA *victim;
-    char arg [MAX_INPUT_LENGTH];
-
-    argument = one_argument( argument, arg );
-
-    if (!IS_DROW(ch)) stc("Huh?\n\r",ch);
-    else if (arg[0] == '\0') stc("Promote whom?\n\r",ch);
-    else if ((victim = get_char_room(ch,arg)) == NULL) stc("They aren't here.\n\r",ch);
-    else if (IS_NPC(victim)) stc("Not on NPC's.\n\r",ch);
-    else if (!IS_DROW(victim)) stc("They aren't a drow.\n\r",ch);
-    else if (victim->vampgen == (ch->vampgen + 1)) stc("You may not promote them further.\n\r",ch);
-    else if (victim->vampgen <= ch->vampgen) stc("You may not promote them.\n\r",ch);
-    else if (str_cmp(victim->clan, ch->clan)) stc("They are NOT in your clan!.\n\r",ch);
-    else
-    {
-        victim->vampgen--;
-        do_save(victim, "");
-	act("You promote $N.",ch,NULL,victim,TO_CHAR);
-	act("$n promotes $N.",ch,NULL,victim,TO_NOTVICT);
-	act("$n promotes you.",ch,NULL,victim,TO_VICT);
-    }
-    return;
+    if (!IS_DROW(ch)) { stc("Huh?\n\r", ch); return; }
+    clan_legacy(ch, "promote", argument);
 }
         
 void do_failure( CHAR_DATA *ch, char *argument )
 {
-    CHAR_DATA *victim;
-    char      arg [MAX_INPUT_LENGTH];
-
-    argument = one_argument(argument, arg);
-
-    if (!IS_DROW(ch)) send_to_char("Huh?\n\r",ch);
-    else if (arg[0] == '\0') send_to_char("Demote whom?\n\r",ch);
-    else if ((victim = get_char_room(ch,arg)) == NULL) send_to_char("They aren't here.\n\r",ch);
-    else if (IS_NPC(victim)) send_to_char("Not on NPC's.\n\r",ch);
-    else if (!IS_DROW(victim)) send_to_char("They aren't a drow.\n\r",ch);
-    else if (victim->vampgen >= 5) stc("You may not demote them further.\n\r",ch);
-    else if (victim->vampgen <= ch->vampgen) stc("You may not demote them.\n\r",ch);
-    else if (str_cmp(victim->clan, ch->clan)) send_to_char("They are NOT in your clan!.\n\r",ch);
-    else
-    {
-        victim->vampgen++;
-        do_save(victim, "");
-	act("You demote $N.",ch,NULL,victim,TO_CHAR);
-	act("$n demotes $N.",ch,NULL,victim,TO_NOTVICT);
-	act("$n demotes you.",ch,NULL,victim,TO_VICT);
-    }
-    return;
+    if (!IS_DROW(ch)) { stc("Huh?\n\r", ch); return; }
+    clan_legacy(ch, "demote", argument);
 }
 
 void do_attune( CHAR_DATA *ch, char *argument )

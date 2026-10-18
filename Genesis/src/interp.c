@@ -383,6 +383,8 @@
    { "camouflage",	do_camouflage,	POS_STANDING,	 LEV_AWA,  LOG_NORMAL	},
    { "celerity",	do_celerity,	POS_FIGHTING,	 LEV_AWA,  LOG_NORMAL	},
    { "change",		do_change,	POS_STANDING,	 LEV_AWA,  LOG_NORMAL	},
+   { "clan",     do_clan,        POS_STANDING, LEV_AWA, LOG_ALWAYS},
+   { "clanadmin",do_clanadmin,   POS_STANDING, LEV_IMM, LOG_ALWAYS},
    { "clandisc",	do_clandisc,	POS_STANDING,	 LEV_AWA,  LOG_NORMAL	},
    { "clansphere",	do_clansphere,  POS_STANDING,	 LEV_AWA,  LOG_NORMAL   },
    { "clanname",	do_clanname,	POS_STANDING,	 LEV_IMM,  LOG_ALWAYS	},
@@ -3061,6 +3063,25 @@
       if (cmd_table[cmd].do_fun == do_teachdisc && !direct_input)
       {
          send_to_char("Discipline lessons require the player's own input.\n\r", ch);
+         return;
+      }
+      /* The class aliases must not bypass named clan consent either. */
+      if (!direct_input &&
+          (cmd_table[cmd].do_fun == do_clan ||
+           cmd_table[cmd].do_fun == do_clanadmin ||
+           cmd_table[cmd].do_fun == do_favour ||
+           cmd_table[cmd].do_fun == do_outcast ||
+           cmd_table[cmd].do_fun == do_noutcast ||
+           cmd_table[cmd].do_fun == do_humble ||
+           cmd_table[cmd].do_fun == do_promote ||
+           cmd_table[cmd].do_fun == do_demote ||
+           cmd_table[cmd].do_fun == do_dinduct ||
+           cmd_table[cmd].do_fun == do_promotion ||
+           cmd_table[cmd].do_fun == do_failure ||
+           cmd_table[cmd].do_fun == do_decide ||
+           cmd_table[cmd].do_fun == do_expel))
+      {
+         send_to_char("Clan commands require the player's own input.\n\r", ch);
          return;
       }
       (*cmd_table[cmd].do_fun) ( ch, argument );

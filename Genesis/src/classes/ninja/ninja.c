@@ -150,129 +150,26 @@ void do_principles( CHAR_DATA *ch, char *argument )
 
 void do_noutcast( CHAR_DATA *ch, char *argument )
 {
-    CHAR_DATA *victim;
-    char buf[MSL];
-    char arg[MIL];
-
-    argument = one_argument(argument, arg);
-
-    if (!IS_NINJA(ch) || ch->vampgen > 2)
-    {
-	stc("Huh?\n\r", ch);
-	return;
-    }
-
-    if (arg[0] == '\0' || (victim = get_char_room(ch, arg)) == NULL)
-    {
-	stc("They aren't here.\n\r", ch);
-	return;
-    }
-
-    if (!IS_NINJA(victim) || ch == victim || str_cmp(victim->clan, ch->clan))
-    {
-	stc("You may only outcast other ninja in your clan.\n\r", ch);
-	return;
-    }
-
-    victim->vampgen = 4;
-    free_string(victim->clan);
-    victim->clan = str_dup("");
-    do_save(victim, "");
-    sprintf(buf, "You have outcast %s from the %s clan!\n\r", victim->name, ch->clan);
-    stc(buf, ch);
-    sprintf(buf, "%s has outcast you from the %s clan!\n\r", ch->name, ch->clan);
-    stc(buf, victim);
-
-    return;
+    if (!IS_NINJA(ch)) { stc("Huh?\n\r", ch); return; }
+    clan_legacy(ch, "kick", argument);
 }
 
 void do_humble( CHAR_DATA *ch, char *argument )
 {
-    CHAR_DATA *victim;
-    char arg[MIL];
-
-    argument = one_argument(argument, arg);
-
-    if (!IS_NINJA(ch) || ch->vampgen > 3)
-    {
-	stc("Huh?\n\r", ch);
-	return;
-    }
-
-    if (arg[0] == '\0' || (victim = get_char_room(ch, arg)) == NULL)
-    {
-	stc("Discipline whom?\n\r", ch);
-	return;
-    }
-
-    if (!IS_NINJA(victim) || ch == victim || strlen(victim->clan) != 0 || !IS_EXTRA(victim, EXTRA_VAMPIRE))
-    {
-	stc("You failed.\n\r", ch);
-	return;
-    }
-
-    act("You allow $N the honor of being inducted into your clan.", ch, NULL, victim, TO_CHAR);
-    act("$n allows $N the honor of being inducted into $s clan.", ch, NULL, victim, TO_NOTVICT);
-    act("$n allows you the honor of being inducted into $s clan.", ch, NULL, victim, TO_VICT);
-
-    free_string(victim->clan);
-    victim->clan = str_dup(ch->clan);
-    victim->vampgen = 4;
-    do_autosave(victim, "");
-
-    return;
+    if (!IS_NINJA(ch)) { stc("Huh?\n\r", ch); return; }
+    clan_legacy(ch, "invite", argument);
 }
 
 void do_promote( CHAR_DATA *ch, char *argument )
 {
-    CHAR_DATA *victim;
-    char      buf[MAX_STRING_LENGTH];
-    char      arg [MAX_INPUT_LENGTH];
-    argument = one_argument( argument, arg );
-    if (IS_NPC(ch)) return;
-    if (!IS_NINJA(ch) || ch->vampgen > 2) stc("Huh?\n\r",ch);
-    else if (arg[0] == '\0') stc("Promote whom?\n\r",ch);
-    else if ((victim = get_char_room(ch,arg)) == NULL) stc("They aren't here.\n\r",ch);
-    else if (IS_NPC(victim)) stc("Not on NPC's.\n\r",ch);
-    else if (!IS_NINJA(victim)) stc("They aren't a ninja.\n\r",ch);
-    else if (ch == victim) stc( "You cannot promote yourself.\n\r",ch);
-    else if (str_cmp(victim->clan, ch->clan)) stc("They are NOT in your clan!.\n\r",ch);
-    else
-    {
-	victim->vampgen = 3;
-	do_save(victim, "");
-	sprintf(buf, "You have promoted %s to Chunin!\n\r",victim->name);
-	stc(buf, ch);
-	sprintf(buf, "You have been promoted to Chunin of %s!\n\r",ch->clan);
-	stc(buf, victim);
-    }
-    return;
+    if (!IS_NINJA(ch)) { stc("Huh?\n\r", ch); return; }
+    clan_legacy(ch, "promote", argument);
 }
 
 void do_demote( CHAR_DATA *ch, char *argument )
 {
-    CHAR_DATA *victim;
-    char      buf[MAX_STRING_LENGTH];
-    char      arg [MAX_INPUT_LENGTH];
-    argument = one_argument( argument, arg );
-    if (IS_NPC(ch)) return;
-    if (!IS_NINJA(ch) || ch->vampgen > 2) send_to_char("Huh?\n\r",ch);
-    else if (arg[0] == '\0') send_to_char("Demote whom?\n\r",ch);
-    else if ((victim = get_char_room(ch,arg)) == NULL) send_to_char("They aren't here.\n\r",ch);
-    else if (IS_NPC(victim)) send_to_char("Not on NPC's.\n\r",ch);
-    else if (!IS_NINJA(victim)) send_to_char("They aren't a ninja.\n\r",ch);
-    else if (ch == victim) send_to_char("You cannot demote yourself.\n\r",ch);
-    else if (str_cmp(victim->clan, ch->clan)) send_to_char("They are NOT in your clan!.\n\r",ch);
-    else
-    {
-	victim->vampgen = 4;
-	do_save(victim, "");
-	sprintf(buf, "You have demoted %s to Genin.\n\r",victim->name);
-	send_to_char(buf, ch);
-	sprintf(buf, "You have been demoted to Genin of %s.\n\r",ch->clan);
-	send_to_char(buf, victim);
-    }
-    return;
+    if (!IS_NINJA(ch)) { stc("Huh?\n\r", ch); return; }
+    clan_legacy(ch, "demote", argument);
 }
 
 

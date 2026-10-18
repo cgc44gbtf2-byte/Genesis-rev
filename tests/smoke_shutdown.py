@@ -13,7 +13,7 @@ import zipfile
 repo = pathlib.Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory(prefix="anathema-stop-") as directory:
     runtime = pathlib.Path(directory)
-    for name in ("area", "player", "backup", "notes", "log"):
+    for name in ("area", "player", "backup", "notes", "log", "clans"):
         (runtime / name).mkdir(mode=0o700)
     with zipfile.ZipFile(repo / "Genesis.zip") as archive:
         for name in archive.namelist():

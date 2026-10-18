@@ -78,6 +78,12 @@ void do_pcrename(CHAR_DATA *ch, char *argument)
             return;
         }
 
+   if (clan_block_class_change(victim) || clan_identity_reserved(arg2))
+   {
+      send_to_char("Managed clan identities must be released before renaming.\n\r", ch);
+      return;
+   }
+
    if (valid_name(arg2))
       {
 		sprintf(old_name, victim->name);

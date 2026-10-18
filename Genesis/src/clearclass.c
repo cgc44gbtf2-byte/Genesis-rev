@@ -24,7 +24,8 @@ void do_clearclass( CHAR_DATA *ch, char *argument )
         send_to_char( "Not on NPC's.\n\r", ch );
         return;
     }
-	do_mclear(victim, "self");
+    if (clan_block_class_change(victim)) return;
+do_mclear(victim, "self");
     vampire_clear_offer(victim);
 
     victim->max_hit                     = 10000;

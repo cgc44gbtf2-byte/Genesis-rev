@@ -35,6 +35,8 @@ static char saved_password[CRYPT_OUTPUT_SIZE];
 static int reported_bugs;
 char log_buf[MAX_STRING_LENGTH];
 CHAR_DATA *char_list;
+/* The real registry/name-reservation path is covered by test_clans. */
+bool clan_identity_reserved(const char *name) { (void)name; return FALSE; }
 
 static ssize_t comm_test_read(int fd, void *buf, size_t count)
 {

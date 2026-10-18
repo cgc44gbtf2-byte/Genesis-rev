@@ -251,27 +251,7 @@ void do_nightsight( CHAR_DATA *ch, char *argument )
 
 void do_outcast( CHAR_DATA *ch, char *argument )
 {
-    char   arg [MAX_INPUT_LENGTH];
-    argument = one_argument( argument, arg );
- 
-    if (IS_NINJA(ch))
-    {
-        do_noutcast(ch, arg);
-        return;   
-    }
-    if (IS_WEREWOLF(ch))
-    {
-        send_to_char("Werewolves need to use: favour victim outcast.\n\r", ch);
-        return;
-    }
-    if (IS_VAMPIRE(ch))
-    {
-        send_to_char("Vampires need to use: favour victim outcast.\n\r", ch);
-        return;
-    }
-
-    send_to_char("Huh?\n\r", ch);
-    return;
+    clan_legacy(ch, "kick", argument);
 }
 
 void do_clanname( CHAR_DATA *ch, char *argument )
@@ -309,6 +289,11 @@ void do_clanname( CHAR_DATA *ch, char *argument )
 	return;
     }
 
+    if (clan_block_name_change(victim, argument))
+    {
+        stc("Use managed clan commands for registered clan identities.\n\r", ch);
+        return;
+    }
     free_string(victim->clan);
     victim->clan = str_dup(argument);
     stc("Clan set.\n\r", ch);
@@ -2015,110 +2000,18 @@ void do_unwerewolf( CHAR_DATA *ch, char *argument )
 
 void do_favour( CHAR_DATA *ch, char *argument )
 {
-    CHAR_DATA *victim;
     char      arg1 [MAX_INPUT_LENGTH];
     char      arg2 [MAX_INPUT_LENGTH];
-
     argument = one_argument( argument, arg1 );
     argument = one_argument( argument, arg2 );
-
-    if ( IS_NPC(ch) ) return;
-
-    if ( !IS_WEREWOLF(ch) && ch->vampgen > 3)
-    {
-	send_to_char( "Huh?\n\r", ch );
-	return;
-    }
-
-    if ( arg1[0] == '\0' || arg2[0] == '\0' )
-    {
-	send_to_char( "Syntax is: favour <target> <favour>\n\r", ch );
-	if ( ch->vampgen <= 2 )
-	    send_to_char( "Favours you can grant: Induct Outcast Elder.\n\r", ch );
-	else
-	    send_to_char( "Favours you can grant: Induct Outcast Sire.\n\r", ch );
-	return;
-    }
-
-    if ( ( victim = get_char_world( ch, arg1 ) ) == NULL )
-    {
-	send_to_char( "They aren't here.\n\r", ch );
-	return;
-    }
-
-    if ( IS_NPC(victim) )
-    {
-	send_to_char( "Not on NPC's.\n\r", ch );
-	return;
-    }
-
-    if ( ch == victim )
-    {
-	send_to_char( "Not on yourself!\n\r", ch );
-	return;
-    }
-
-    if ( !IS_WEREWOLF(victim) )
-    {
-	send_to_char( "You cannot do that, fool!\n\r", ch );
-	return;
-    }
-
-    if ( !str_cmp(arg2,"elder") )
-    {
-	if (ch->vampgen > 2)
-	    send_to_char("You are unable to grant this sort of favour.\n\r",ch);
-	else if (victim->vampgen == 3)
-	{
-	    act("You remove $N's Elder status!",ch,NULL,victim,TO_CHAR);
-	    act("$n has removed $N's Elder status!",ch,NULL,victim,TO_NOTVICT);
-	    act("$n has removed your Elder status!",ch,NULL,victim,TO_VICT);
-	    victim->vampgen = 4;
-	}
-	else
-	{
-	    act("You grant $N Elder status!",ch,NULL,victim,TO_CHAR);
-	    act("$n has granted $N Elder status!",ch,NULL,victim,TO_NOTVICT);
-	    act("$n has granted you Elder status!",ch,NULL,victim,TO_VICT);
-	    victim->vampgen = 3;
-	}
-	return;
-    }
-    else if ( !str_cmp(arg2,"induct") )
-    {
-	if (!IS_EXTRA(ch, EXTRA_VAMPIRE))
-	    send_to_char( "You cannot induct an unwilling person.\n\r", ch );
-	else if ( IS_WEREWOLF(ch) )
-	{
-	    act("You induct $N into your tribe!",ch,NULL,victim,TO_CHAR);
-	    act("$n inducts $N into $s tribe!",ch,NULL,victim,TO_NOTVICT);
-	    act("$n inducts you into $s tribe!",ch,NULL,victim,TO_VICT);
-	    free_string(victim->clan);
-	    victim->clan = str_dup( ch->clan );
-	    victim->vampgen = 4;
-	}
-	return;
-    }
-    else if ( !str_cmp(arg2,"outcast") )
-    {
-	if (ch->vampgen > 2)
-	    send_to_char("You are unable to grant this sort of favour.\n\r",ch);
-	else if (!str_cmp(victim->clan,ch->clan))
-	    stc("They aren't in your clan.\n\r",ch);
-	else
-	{
-	    act("You outcast $N from your tribe!",ch,NULL,victim,TO_CHAR);
-	    act("$n outcasts $N from $s tribe!",ch,NULL,victim,TO_NOTVICT);
-	    act("$n outcasts you from $s tribe!",ch,NULL,victim,TO_VICT);
-	    free_string(victim->clan);
-	    victim->clan = str_dup( "" );
-	    victim->vampgen = 4;
-	}
-	return;
-    }
-    else 
-	send_to_char( "You are unable to grant that sort of favour.\n\r", ch );
-    return;
+    if (!IS_VAMPIRE(ch) && !IS_WEREWOLF(ch))
+        { stc("Huh?\n\r", ch); return; }
+    if (!arg1[0] || argument[0])
+        { stc("Syntax: favour <player> induct|outcast|elder.\n\r", ch); return; }
+    if (!str_cmp(arg2, "induct")) clan_legacy(ch, "invite", arg1);
+    else if (!str_cmp(arg2, "outcast")) clan_legacy(ch, "kick", arg1);
+    else if (!str_cmp(arg2, "elder")) clan_legacy(ch, "promote", arg1);
+    else stc("Use induct, outcast or elder (officer); clan demote removes office.\n\r", ch);
 }
 
 void do_familiar( CHAR_DATA *ch, char *argument )

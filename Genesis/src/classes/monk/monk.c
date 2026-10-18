@@ -1052,86 +1052,12 @@ void do_monkarmor( CHAR_DATA *ch, char *argument )
 
 void do_decide( CHAR_DATA *ch, char *argument )
 {
-    CHAR_DATA *victim;    
-    char arg[MIL];   
-
-    one_argument(argument, arg);
-
-    if (!IS_MONK(ch) || ch->vampgen > 3)
-    {
-	stc("Huh?\n\r", ch);
-	return;
-    }
-
-    if (arg[0] == '\0')
-    {
-	stc("Syntax: Decide <victim>\n\r", ch);
-	return;
-    }
-
-    if ((victim = get_char_room(ch, arg)) == NULL)
-    {
-	stc("Decide who's fate?\n\r", ch);
-	return;
-    }
-
-    if (IS_NPC(victim) || !IS_MONK(victim) || strlen(victim->clan) != 0)
-    {
-	stc("You may only decide the fate of unclanned monks.\n\r", ch);
-	return;
-    }
-
-    act("You induct $N into your clan.", ch, NULL, victim, TO_CHAR);
-    act("$n inducts $N into his clan.", ch, NULL, victim, TO_NOTVICT);
-    act("$n inducts you in his clan.", ch, NULL, victim, TO_VICT);
-
-    free_string(victim->clan);
-    victim->clan = str_dup(ch->clan);
-    victim->vampgen = 4;
-    save_char_obj(ch);
-    save_char_obj(victim);
-    return;
+    if (!IS_MONK(ch)) { stc("Huh?\n\r", ch); return; }
+    clan_legacy(ch, "invite", argument);
 }
 
 void do_expel( CHAR_DATA *ch, char *argument )
 {
-    CHAR_DATA *victim;
-    char arg[MIL];
-
-    one_argument(argument, arg);
-
-    if (!IS_MONK(ch) || ch->vampgen > 2)
-    {
-	stc("Huh?\n\r", ch);
-	return;
-    }
-
-    if (arg[0] == '\0')
-    {
-	stc("Expel who?\n\r", ch);
-	stc("Syntax 'Expel <victim>'\n\r", ch);
-	return;
-    }
-
-    if ((victim = get_char_room(ch, arg)) == NULL)
-    {
-	stc("They aren't here.\n\r", ch);
-	return;
-    }
-
-    if (IS_NPC(victim) || !IS_MONK(victim) || str_cmp(victim->clan, ch->clan))
-    {
-	stc("You can only expel monks in your clan.\n\r", ch);
-	return;
-    }
-
-    act("You expel $N from your clan.", ch, NULL, victim, TO_CHAR);
-    act("$n expels $N from his clan.", ch, NULL, victim, TO_NOTVICT);
-    act("$n expelled you from his clan.", ch, NULL, victim, TO_VICT);
-
-    free_string(victim->clan);
-    victim->clan = str_dup("");
-    save_char_obj(ch);
-    save_char_obj(victim);
-    return;
+    if (!IS_MONK(ch)) { stc("Huh?\n\r", ch); return; }
+    clan_legacy(ch, "kick", argument);
 }

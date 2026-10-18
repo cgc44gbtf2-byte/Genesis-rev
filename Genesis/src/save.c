@@ -846,6 +846,7 @@ bool load_char_obj( DESCRIPTOR_DATA *d, char *name )
     }
 
     fpReserve = fopen( NULL_FILE, "r" );
+    if (found) clan_sync_player(ch);
     return found;
 }
 

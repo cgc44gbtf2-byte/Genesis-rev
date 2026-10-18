@@ -46,6 +46,7 @@ RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 # OLC, ban/disable lists, leader.txt, shutdown.txt, and copyover.data live there.
 ReadWritePaths=/var/lib/anathema/area
 ReadWritePaths=/var/lib/anathema/player /var/lib/anathema/backup
+ReadWritePaths=/var/lib/anathema/clans
 ReadWritePaths=/var/lib/anathema/notes /var/lib/anathema/log
 
 [Install]
