@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #endif
 #include <stdio.h>
+#include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
@@ -263,6 +264,69 @@ void do_summonspider( CHAR_DATA *ch, char *argument )
 
 }
 
+/* Consumable recipe, separate from permanent 8000-DP/400-quest relics.
+ * Batch and arithmetic checks are completed before creating or charging. */
+static void craft_drow_bolts(CHAR_DATA *ch, char *argument)
+{
+    char amount[MAX_INPUT_LENGTH], extra[MAX_INPUT_LENGTH], message[160];
+    char *end;
+    long count = 1;
+    argument = one_argument(argument, amount);
+    one_argument(argument, extra);
+    if (extra[0] != '\0') {
+        stc("Syntax: drowarmor bolts [1-20]. Cost: 100 Drow points per bolt.\n\r", ch);
+        return;
+    }
+    if (amount[0] != '\0') {
+        for (const char *p = amount; *p; ++p)
+            if (*p < '0' || *p > '9') {
+                stc("Choose a whole number of bolts from 1 to 20.\n\r", ch);
+                return;
+            }
+        errno = 0;
+        count = strtol(amount, &end, 10);
+        if (errno == ERANGE || *end != '\0' || count < 1 || count > 20) {
+            stc("Choose a whole number of bolts from 1 to 20.\n\r", ch);
+            return;
+        }
+    }
+    long cost = count * 100; /* count is bounded above before multiplication. */
+    if (ch->pcdata->classpoints[CP_CURRENT] < cost) {
+        stc("Crafting bolts costs 100 Drow points each; you do not have enough.\n\r", ch);
+        return;
+    }
+    OBJ_INDEX_DATA *prototype = get_obj_index(OBJ_VNUM_DROW_BOLT);
+    if (prototype == NULL || prototype->item_type != ITEM_AMMO ||
+        prototype->value[3] < 0 || prototype->weight < 0 ||
+        !IS_SET(prototype->wear_flags, ITEM_TAKE)) {
+        stc("The Drow bolt template is unavailable or invalid; please tell staff.\n\r", ch);
+        return;
+    }
+    if (ch->carry_number < 0 || ch->carry_weight < 0 ||
+        ch->carry_number > LONG_MAX - count ||
+        prototype->weight > (LONG_MAX - ch->carry_weight) / count) {
+        stc("You cannot safely carry that batch of bolts.\n\r", ch);
+        return;
+    }
+    for (long i = 0; i < count; ++i) {
+        OBJ_DATA *bolt = create_object(prototype, 0);
+        /* The relic constructor normally assigns a large resale value.
+         * Consumables must not turn renewable class points into shop gold. */
+        bolt->cost = 0;
+        bolt->points = 0;
+        free_string(bolt->questmaker);
+        bolt->questmaker = str_dup(ch->name);
+        /* Leave questowner empty, like other tradable crafted supplies. */
+        obj_to_char(bolt, ch);
+    }
+    ch->pcdata->classpoints[CP_CURRENT] -= cost;
+    snprintf(message, sizeof(message),
+        "You craft %ld Drow bolt%s for %ld Drow points.\n\r",
+        count, count == 1 ? "" : "s", cost);
+    stc(message, ch);
+    act("$n crafts some crossbow bolts.", ch, NULL, NULL, TO_ROOM);
+}
+
 void do_drowarmor( CHAR_DATA *ch, char *argument )
 {
     OBJ_INDEX_DATA *pObjIndex;
@@ -282,7 +346,13 @@ void do_drowarmor( CHAR_DATA *ch, char *argument )
     {
 	stc("Please specify which piece of drow armor you wish to make:\n\r", ch);
 	stc("  Cloak, Helmet, Breastplate, Bracer, Crossbow.\n\r", ch);
+stc("  Bolts [1-20]: 100 Drow points each, no quest points.\n\r", ch);
 	return;
+    }
+
+    if (!str_cmp(arg, "bolt") || !str_cmp(arg, "bolts")) {
+        craft_drow_bolts(ch, argument);
+        return;
     }
 
     if (ch->pcdata->classpoints[CP_CURRENT] < 8000 || ch->pcdata->quest < 400)

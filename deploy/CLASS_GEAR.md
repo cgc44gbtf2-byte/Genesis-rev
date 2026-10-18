@@ -15,6 +15,7 @@ hybrids, new object templates, or new prices. The reference world data is
 | Monk | `monkarmor`: necklace, habit, belt, tiger, dragon | 100 primal + 400 quest | 29610–29614 |
 | Elemental | `elemarmor`: bracer, sword | 100 primal + 400 quest | 29620–29621 |
 | Drow | `drowarmor`: cloak, helmet, breastplate, bracer, crossbow | 8000 Drow points + 400 quest, not primal | 29652–29655, 29658 |
+| Drow | `drowarmor bolt` / `drowarmor bolts [1-20]` | 100 Drow points per bolt; no quest, gold or primal charge | 29659 |
 | Highlander | `forge`: create or reforge an owned, unworn, non-relic/non-artifact weapon | 50 primal + 100 quest | 29650 |
 | Mage | `magearmor`: robes, hood, talisman | 100 primal + 400 quest | 29660–29662 |
 | Sorcerer | `sorccreate`: book, pen / page | 10 primal / free | uses protoplasm template 30037 |
@@ -65,7 +66,7 @@ templates: 29 crafting variants, both resource boundaries, missing templates,
 class restrictions (including unclassed, hybrid and NPC rejection), reforging,
 enchantment payment, overlapping effects, artifact limits, silver hands,
 Dragon persistence with and without gear, and roomless item cleanup.
-Catalog checks validate all 27 craftable relic prototypes, weapon value ranges,
+Catalog checks validate all 28 craftable relic/ammo prototypes, weapon value ranges,
 Sorcerer material presence and Drow ammunition metadata in the bundled archive.
 The full regression and sanitizer suites are still necessary.
 
@@ -98,15 +99,47 @@ The shooter is never physically moved: room membership and stealth/darkness/
 silence remain intact on every exit path. The existing damage/poison safety
 checks and lethal-target cleanup remain in force.
 
-**Rollout prerequisite:** operators must stock the existing bolt template 29659
-through their world/shop tools before deploying this change. This patch does
-not add a free crafting recipe, new shop prices, loot resets or world-archive
-edits. Supplies and economy are an explicit operator decision; players without
-bolts can no longer fire. Back up the world/player data before any rollout.
+### Player-crafted supply
+
+Players can now create their own supplies:
+
+```
+drowarmor bolt
+drowarmor bolts 10
+```
+
+The default is one bolt; batch size is 1–20, at **100 Drow points per bolt**.
+There is no quest-point, gold or primal charge. Ten bolts cost 1000 points;
+firing one still costs 500 points, so a freshly crafted-and-fired bolt costs
+600 points in total. This is an initial balance setting, not a measured
+multiplayer balance result. Permanent Drow equipment remains 8000 points
+plus 400 quest points.
+
+Crafted bolts record their maker but leave ownership empty, allowing Drow
+players to supply one another. Their shop resale value and refundable quest
+points are zero, including after saving/reloading. Foreign-owned ammunition
+remains protected by the existing firing checks.
+
+Invalid quantities, insufficient points, missing/wrong-type/non-takeable
+templates, invalid weight/caliber and overflowing carry counters fail before
+creating any items or charging any points. Batches are bounded to 20;
+partial batches are not created for insufficient funds. Crafting uses normal
+player-save timing, not a new independently durable transaction.
+
+**Rollout prerequisite:** the existing bolt template 29659 must be loaded and
+valid (`relic.are` in the supplied world). Manual shop/loot stocking is no
+longer required: the player recipe supplies bolts. No shop prices, loot resets,
+world-archive edits or player-file migrations are installed. Back up world and
+player data before rollout; players still need to craft or obtain bolts to fire.
+The recipe always creates native bolt 29659. Crossbows deliberately customized
+to a different ammunition vnum still need their configured ammunition supplied.
 
 `test_drow_ammo` exercises the real engine's consumption, eligibility, ownership,
 custom/legacy compatibility, all five barrier types, misses, safety boundaries,
 room/stealth invariants, crafting and old-save/remaining-ammo persistence.
+Recipe tests cover 1/20 limits, full-batch payment, invalid and overflowing
+quantities, template/carry-counter failures, tradability, zero shop value,
+zero quest refunds and preserved maker/economy fields across save/reload.
 The synthetic runtime suite separately covers lethal target removal,
 unavailable poison skills and negative/extreme damage-roll bounds.
 

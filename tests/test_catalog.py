@@ -52,13 +52,14 @@ class CatalogChecks(unittest.TestCase):
         vnums = {
             29600, 29601, 29602, 29603, 29610, 29611, 29612, 29613, 29614,
             29620, 29621, 29630, 29631, 29632, 29639, 29640, 29641, 29642,
-            29650, 29652, 29653, 29654, 29655, 29658, 29660, 29661, 29662,
+            29650, 29652, 29653, 29654, 29655, 29658, 29659, 29660, 29661, 29662,
         }
-        self.assertEqual(len(vnums), 27)
+        self.assertEqual(len(vnums), 28)
         for vnum in vnums:
             with self.subTest(vnum=vnum):
                 kind, values = relics[vnum]
-                self.assertEqual(kind, 5 if vnum in weapons else 31 if vnum == 29658 else 9)
+                self.assertEqual(kind, 5 if vnum in weapons else
+                                 31 if vnum == 29658 else 32 if vnum == 29659 else 9)
                 self.assertEqual(len(values), 4)
                 if kind == 5:
                     self.assertGreaterEqual(values[1], 0)

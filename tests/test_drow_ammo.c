@@ -1,5 +1,6 @@
 /* Real engine: individual projectiles, payment boundaries and old-save support. */
 #include <assert.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,6 +11,7 @@
 extern char *string_space, *top_string;
 extern bool fBootDb;
 extern void init_mm(void);
+extern long get_cost(CHAR_DATA *keeper, OBJ_DATA *obj, bool buying);
 static CHAR_DATA actor, target;
 static PC_DATA pc;
 static DESCRIPTOR_DATA descriptor;
@@ -248,6 +250,113 @@ static void crafting_and_persistence(void)
     free_char(ch);
 }
 
+static void craft(const char *text)
+{
+    char argument[MAX_INPUT_LENGTH];
+    snprintf(argument, sizeof(argument), "%s", text);
+    descriptor.outtop = 0; output[0] = '\0';
+    do_drowarmor(&actor, argument);
+}
+
+static void assert_no_craft(const char *text)
+{
+    long dp = pc.classpoints[CP_CURRENT], quest = pc.quest;
+    long count = actor.carry_number, weight = actor.carry_weight;
+    craft(text);
+    assert(pc.classpoints[CP_CURRENT] == dp && pc.quest == quest &&
+           actor.carry_number == count && actor.carry_weight == weight &&
+           bolts(&actor) == 0);
+}
+
+static void bolt_crafting(void)
+{
+    fixture();
+    actor.primal = 7; actor.gold = 11; pc.quest = 9;
+    pc.classpoints[CP_TOTAL] = 23;
+    craft("bolts");
+    assert(bolts(&actor) == 1 && pc.classpoints[CP_CURRENT] == 900 &&
+           actor.primal == 7 && actor.gold == 11 && pc.quest == 9 &&
+           pc.classpoints[CP_TOTAL] == 23);
+    OBJ_DATA *ammo = actor.carrying;
+    assert(ammo->item_type == ITEM_AMMO && ammo->cost == 0 && ammo->points == 0 &&
+           !str_cmp(ammo->questmaker, actor.name) && !ammo->questowner[0]);
+    SHOP_DATA shop = {0};
+    MOB_INDEX_DATA seller_index = {0};
+    CHAR_DATA seller = {0};
+    shop.buy_type[0] = ITEM_AMMO; shop.profit_sell = 50;
+    seller_index.pShop = &shop; seller.pIndexData = &seller_index;
+    assert(get_cost(&seller, ammo, FALSE) == 0);
+    shoot("north target"); /* Default recipe produces usable ammunition. */
+    assert(bolts(&actor) == 0 && pc.classpoints[CP_CURRENT] == 400);
+    fixture(); pc.quest = 9; actor.gold = 11; craft("bolt");
+    ammo = actor.carrying;
+    obj_from_char(ammo); obj_to_room(ammo, &home);
+    do_sacrifice(&actor, "gear");
+    assert(home.contents == NULL && pc.quest == 9 && actor.gold == 11 &&
+           pc.classpoints[CP_CURRENT] == 900);
+
+    fixture(); pc.classpoints[CP_CURRENT] = 2000;
+    craft("bolt 20");
+    assert(bolts(&actor) == 20 && pc.classpoints[CP_CURRENT] == 0 &&
+           actor.carry_number == 21 && actor.carry_weight == 21 * indices[1].weight);
+    fixture(); pc.classpoints[CP_CURRENT] = 1999;
+    assert_no_craft("bolts 20"); /* No partial batch or partial deduction. */
+    fixture(); pc.classpoints[CP_CURRENT] = 99;
+    assert_no_craft("bolt");
+    const char *invalid[] = {"bolts 0", "bolts -1", "bolts +1", "bolts 21",
+        "bolts 1.5", "bolts banana", "bolts 2 extra",
+        "bolts 99999999999999999999999999999999"};
+    for (size_t i = 0; i < sizeof(invalid)/sizeof(invalid[0]); ++i) {
+        fixture(); assert_no_craft(invalid[i]);
+    }
+    fixture(); actor.class = CLASS_MAGE;
+    assert_no_craft("bolts");
+    fixture(); SET_BIT(actor.act, ACT_IS_NPC); actor.pcdata = NULL;
+    assert_no_craft("bolts"); actor.pcdata = &pc; REMOVE_BIT(actor.act, ACT_IS_NPC);
+
+    fixture();
+    long hash = OBJ_VNUM_DROW_BOLT % MAX_KEY_HASH;
+    assert(obj_index_hash[hash] == &indices[1]);
+    obj_index_hash[hash] = indices[1].next;
+    assert_no_craft("bolts");
+    obj_index_hash[hash] = &indices[1];
+    for (int i = 0; i < 4; ++i) {
+        fixture();
+        long type = indices[1].item_type, weight = indices[1].weight;
+        long flags = indices[1].wear_flags, caliber = indices[1].value[3];
+        if (i == 0) indices[1].item_type = ITEM_TRASH;
+        if (i == 1) indices[1].weight = -1;
+        if (i == 2) indices[1].wear_flags = 0;
+        if (i == 3) indices[1].value[3] = -1;
+        assert_no_craft("bolts");
+        indices[1].item_type = type; indices[1].weight = weight;
+        indices[1].wear_flags = flags; indices[1].value[3] = caliber;
+    }
+    fixture();
+    long count = actor.carry_number, weight = actor.carry_weight;
+    actor.carry_number = LONG_MAX;
+    assert_no_craft("bolts"); actor.carry_number = count;
+    actor.carry_weight = LONG_MAX;
+    assert_no_craft("bolts"); actor.carry_weight = weight;
+
+    fixture(); craft("bolts 3");
+    actor.name = "Friend"; /* Supplies remain tradable; maker isn't an owner lock. */
+    shoot("north target");
+    actor.name = "Boltuser";
+    assert(bolts(&actor) == 2 && pc.classpoints[CP_CURRENT] == 200);
+    assert(save_char_obj_checked(&actor));
+    DESCRIPTOR_DATA loaded = {0};
+    assert(load_char_obj(&loaded, "Boltuser"));
+    assert(bolts(loaded.character) == 2 &&
+           loaded.character->pcdata->classpoints[CP_CURRENT] == 200);
+    for (OBJ_DATA *o = loaded.character->carrying; o; o = o->next_content)
+        if (o->item_type == ITEM_AMMO)
+            assert(o->cost == 0 && o->points == 0 && !o->questowner[0] &&
+                   !str_cmp(o->questmaker, "Boltuser"));
+    while (loaded.character->carrying) extract_obj(loaded.character->carrying);
+    free_char(loaded.character);
+}
+
 int main(void)
 {
     char root[] = "/tmp/anathema-ammo-XXXXXX", original[4096];
@@ -262,7 +371,7 @@ int main(void)
     prototype(4, 72011, ITEM_TRASH); prototype(5, 72012, ITEM_CONTAINER);
     mobile.short_descr = "a target";
     dry_and_success(); rejection_and_misses(); ownership_and_compatibility();
-    crafting_and_persistence();
+    bolt_crafting(); crafting_and_persistence();
     fixture();
     while (actor.carrying) extract_obj(actor.carrying);
     clan_registry_close(); char_list = NULL; descriptor_list = NULL;
@@ -272,6 +381,6 @@ int main(void)
            rmdir("player") == 0 && rmdir("backup") == 0 &&
            chdir(original) == 0 && rmdir(root) == 0);
     puts("Drow ammunition: costs, compatibility, ownership, miss/safety boundaries, "
-         "room invariants, crafting and old-save persistence passed");
+         "room invariants, bounded crafting, trading/resale and old-save persistence passed");
     return 0;
 }

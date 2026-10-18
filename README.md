@@ -3,6 +3,9 @@
 Class gear inventory, prices, corrected bugs and remaining content gaps:
 [deploy/CLASS_GEAR.md](deploy/CLASS_GEAR.md).
 
+Drow can craft supplies with `drowarmor bolts [1-20]` at 100 Drow points per
+bolt (default one, no quest/gold/primal charge); firing still costs 500 points.
+
 Managed class-clan governance is documented in
 [deploy/CLAN_MANAGEMENT.md](deploy/CLAN_MANAGEMENT.md). Staff adoption is
 required before legacy clan-management aliases confer authority. Offices are

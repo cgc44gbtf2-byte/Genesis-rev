@@ -9,10 +9,11 @@ does not grant them.
 
 ## 1. Prepare and preserve existing state
 
-**Drow ammunition:** before deploying this version, stock the existing Drow
-bolt template `29659` through your world/shop tools. Shooting now requires one
-compatible loose projectile plus the existing 500 Drow points. No bolt recipes,
-shop prices or loot resets are installed automatically; see
+**Drow ammunition:** ensure existing bolt template `29659` is loaded and valid
+(`relic.are` in the supplied world). Players can use `drowarmor bolts [1-20]`
+for 100 Drow points per bolt, with no quest/gold/primal charge. Shooting still
+requires one compatible loose projectile plus 500 Drow points. Manual shop/loot
+stocking is no longer required; no shop prices or loot resets are added. See
 [CLASS_GEAR.md](CLASS_GEAR.md#drow-ammunition-follow-up) for compatibility and
 rollout details. Existing player files do not need rewriting.
 
