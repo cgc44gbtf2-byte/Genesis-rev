@@ -205,7 +205,7 @@ Ten Python layout checks cover:
 now inspect the same manifest-selected class sources instead of only root
 `*.c` files; command, world-reference and skill-reference coverage is retained.
 
-Verification now uses all **19 normal and ASan/UBSan C suites**,
+Verification now uses all **20 normal and ASan/UBSan C suites**,
 **20 unique Python catalog/layout checks**, the full production build and
 isolated TCP/TERM smoke test, followed by the Debian 12/13 and Ubuntu
 22.04/24.04 CI matrix. A test result is recorded in the PR only after it passes;
@@ -215,6 +215,19 @@ The nineteenth suite, `tests/test_damage_messages.c`, covers the separate
 Gathering-wording change without expanding class-cleanup scope: unchanged
 Genesis thresholds, six damage types, recipient/number visibility, unchanged
 actor state and bounded handling of long/missing attack names.
+
+The twentieth suite, `tests/test_transformations.c`, covers the shared
+transformation persistence boundary. Cleanup now lives in the non-saving
+`transformation.c:reset_form_stats()` helper. All nine known transformation
+reset sites defer autosaving until each command finishes its form state;
+`clear_stats()` keeps its reset-and-save compatibility contract. Coverage
+includes six forms in both directions, equipment/affect cleanup, Dragon
+features, class/NPC rejection, old-file retention on pre-rename failure,
+uncertain directory fsync, independent primary/backup failures and retries.
+This is a lifecycle bug fix, not another handler extraction: class module
+and extracted-handler counts remain 21 and 13 respectively. The player-file
+format and class balance do not change. Follower accounting, overlapping
+temporary-flag ownership and complete class teardown still require work.
 
 These checks do not prove complete multiplayer balance, all legacy behavior,
 power-cut recovery or every production systemd interaction. The preserved

@@ -3314,6 +3314,10 @@ long	date_to_int	args( ( char *argument ) );
 void	oset_affect	args( ( CHAR_DATA *ch, OBJ_DATA *obj, long value, long affect, bool is_quest) );
 void	clear_stats	args( ( CHAR_DATA *ch ) );
 
+/* transformation.c */
+/* Stat/equipment cleanup only; finish the transformation before autosaving. */
+void	reset_form_stats args( ( CHAR_DATA *ch ) );
+
 /* clan.c */
 void	vamp_rage	args( ( CHAR_DATA *ch ) );
 bool	char_exists	args( ( char *name ) );

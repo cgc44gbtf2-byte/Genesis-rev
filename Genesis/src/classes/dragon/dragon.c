@@ -50,6 +50,7 @@ void do_dragonform( CHAR_DATA *ch, char *argument )
 	send_to_char("Your body shrinks back to its human form.\n\r",ch);
 	act("A large dragon's body shrinks into the form of $n.",ch,NULL,NULL,TO_ROOM);
 	update_style(ch);
+	do_autosave(ch, "");
 	return;
     }
     switch (ch->pcdata->dragcol)
@@ -82,7 +83,7 @@ void do_dragonform( CHAR_DATA *ch, char *argument )
     stc("Your body grows into a large dragon.\n\r", ch);
     act("$n's body grows and distorts into a large dragon.", ch, NULL, NULL, TO_ROOM);
 
-    clear_stats(ch);
+    reset_form_stats(ch);
     SET_BIT(ch->affected_by, AFF_POLYMORPH);
     SET_BIT(ch->vampaff, VAM_DISGUISED);
     SET_BIT(ch->polyaff, POLY_DRAGONFORM);
@@ -98,6 +99,7 @@ void do_dragonform( CHAR_DATA *ch, char *argument )
     if (IS_DRAGAFF(ch, DRAG_FANGS)) do_fangs(ch,"");
     if (IS_DRAGAFF(ch, DRAG_NIGHT)) do_nightsight(ch,"");
     update_style(ch);
+    do_autosave(ch, "");
     return;
 }
 

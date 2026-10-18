@@ -606,7 +606,7 @@ void do_change( CHAR_DATA *ch, char *argument )
 	}
 	if (ch->stance[0] != -1) do_stance(ch,"");
 	SET_BIT(ch->polyaff, POLY_BAT);
-	clear_stats(ch);
+	reset_form_stats(ch);
 	act( "You transform into bat form.", ch, NULL, NULL, TO_CHAR );
 	act( "$n transforms into a bat.", ch, NULL, NULL, TO_ROOM );
 	SET_BIT(ch->vampaff, VAM_FLYING);
@@ -616,6 +616,7 @@ void do_change( CHAR_DATA *ch, char *argument )
 	sprintf(buf, "A black vampire bat");
     	free_string( ch->morph );
     	ch->morph = str_dup( buf );
+	do_autosave(ch, "");
 	return;
     }
     else if ( !str_cmp(arg,"wolf") )
@@ -629,12 +630,13 @@ void do_change( CHAR_DATA *ch, char *argument )
 	act( "You transform into wolf form.", ch, NULL, NULL, TO_CHAR );
 	act( "$n transforms into a dire wolf.", ch, NULL, NULL, TO_ROOM );
 	SET_BIT(ch->polyaff, POLY_WOLF);
-	clear_stats(ch);
+	reset_form_stats(ch);
 	SET_BIT(ch->affected_by, AFF_POLYMORPH);
 	SET_BIT(ch->vampaff, VAM_CHANGED);
 	sprintf(buf, "A dire wolf");
     	free_string( ch->morph );
     	ch->morph = str_dup( buf );
+	do_autosave(ch, "");
 	return;
     }
     else if ( !str_cmp(arg,"mist") )
@@ -680,13 +682,14 @@ void do_change( CHAR_DATA *ch, char *argument )
 	    REMOVE_BIT(ch->affected_by, AFF_SHADOW);
 	}
 	SET_BIT(ch->polyaff, POLY_MIST);
-	clear_stats(ch);
+	reset_form_stats(ch);
 	SET_BIT(ch->vampaff, VAM_CHANGED);
 	SET_BIT(ch->affected_by, AFF_POLYMORPH);
 	SET_BIT(ch->affected_by, AFF_ETHEREAL);
 	sprintf(buf, "A white mist");
     	free_string( ch->morph );
     	ch->morph = str_dup( buf );
+	do_autosave(ch, "");
 	return;
     }
     else if ( !str_cmp(arg,"human") )
@@ -719,9 +722,10 @@ void do_change( CHAR_DATA *ch, char *argument )
 	act( "$n transforms into human form.", ch, NULL, NULL, TO_ROOM );
 	REMOVE_BIT(ch->affected_by, AFF_POLYMORPH);
 	REMOVE_BIT(ch->vampaff, VAM_CHANGED);
-	clear_stats(ch);
+	reset_form_stats(ch);
   	free_string( ch->morph );
     	ch->morph = str_dup( "" );
+	do_autosave(ch, "");
 	return;
     }
     else
@@ -1429,13 +1433,14 @@ void do_serpent( CHAR_DATA *ch, char *argument )
 	act( "$n transforms into human form.", ch, NULL, NULL, TO_ROOM );
 	REMOVE_BIT(ch->polyaff, POLY_SERPENT);
 	REMOVE_BIT(ch->affected_by, AFF_POLYMORPH);
-	clear_stats(ch);
+	reset_form_stats(ch);
 	free_string( ch->morph );
 	ch->morph = str_dup( "" );
+	do_autosave(ch, "");
 	return;
     }
     SET_BIT(ch->polyaff, POLY_SERPENT);
-    clear_stats(ch);
+    reset_form_stats(ch);
     if (ch->stance[0] != -1) do_stance(ch,"");
     act( "You transform into a huge serpent.", ch, NULL, NULL, TO_CHAR );
     act( "$n transforms into a huge serpent.", ch, NULL, NULL, TO_ROOM );
@@ -1443,6 +1448,7 @@ void do_serpent( CHAR_DATA *ch, char *argument )
     sprintf(buf, "A huge serpent[#0%s#n]", ch->name);
     free_string( ch->morph );
     ch->morph = str_dup( buf );
+    do_autosave(ch, "");
     return;
 }
 

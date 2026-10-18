@@ -296,7 +296,7 @@ costs, ranks, skill slots, player-data layout or hybrid availability change.
 See [class ownership and the remaining cleanup stages](deploy/CLASS_LAYOUT.md)
 for the ten-class map, shared engine hooks and the separate saved-field
 migration work. `make test` now includes ten layout checks alongside
-19 C suites; `python3 tests/test_catalog.py` runs ten additional catalog checks.
+20 C suites; `python3 tests/test_catalog.py` runs ten additional catalog checks.
 Runtime optimization remains measurement-driven, not an assumed benefit of
 file organization.
 
@@ -313,7 +313,7 @@ seven bodies was compared byte-for-byte with head `0f6598a`, and the eighteenth
 full-engine suite passed before and after extraction. It checks rank/class
 gates, group invisibility, summoning consent/room restrictions, NPC bindings,
 actual illusion creation and the five-follower cap. Shared commands and
-transformation/autosave helpers remain in `clan.c`; no save migration or
+transformation commands remain in shared legacy files; no save migration or
 numerical rebalance is bundled with the extraction.
 
 A separate hardening change rejects Possession while the caster already has
@@ -345,3 +345,29 @@ local display buffers; a missing name displays as `attack`.
 The nineteenth full-engine suite checks both sides of every threshold, all
 six damage types, all four recipient modes, unchanged actor resources/state,
 and oversized/missing names under normal and sanitizer builds.
+
+## Transformation persistence boundary
+
+The shared, non-saving `reset_form_stats()` helper now owns equipment/stat
+cleanup in `transformation.c`. The old `clear_stats()` entry point remains a
+reset-and-save compatibility wrapper. All nine transformation call sites use
+the non-saving helper, then autosave only after flags, appearance and class
+bonuses are complete: Bat, Wolf, Mist, Serpent, Shadow Body and Dragon Form.
+Dragon's return to human also saves its completed state.
+
+Previously those handlers could save a new form bit with the old appearance
+and missing polymorph/flight/ethereal flags, or human flags with the old form
+description. The twentieth full-engine suite first reproduced that disk
+round-trip failure. It covers both directions for all six forms, equipment
+unequipping, affect removal, Dragon features, rejected class/NPC calls, the
+non-saving helper and legacy wrapper, 72 injected save-stage/direction cases,
+separately unavailable primary/backup destinations and explicit save retries.
+
+No saved-field format, class IDs, costs, rank gates or numerical bonuses
+change. Failed pre-rename writes retain the old file; directory-fsync failures
+leave a complete new file visible but durability uncertain. Live gameplay
+remains in the completed form rather than attempting unsafe equipment/affect
+rollback. Primary and backup are independently atomic, not a two-file
+transaction; retries use the existing autosave path. This does not repair
+pre-existing inconsistent saves or finish follower accounting, ownership of
+overlapping temporary flags, class teardown or hybrid migration.

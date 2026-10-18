@@ -1548,7 +1548,7 @@ void do_shadowbody( CHAR_DATA *ch, char *argument )
 	act( "You transform into human form.", ch, NULL, NULL, TO_CHAR );
 	act( "$n transforms into human form.", ch, NULL, NULL, TO_ROOM );
 	REMOVE_BIT(ch->affected_by, AFF_POLYMORPH);
-	clear_stats(ch);
+	reset_form_stats(ch);
   	free_string( ch->morph );
     	ch->morph = str_dup( "" );
     }
@@ -1572,13 +1572,14 @@ void do_shadowbody( CHAR_DATA *ch, char *argument )
 	    affect_strip(ch, gsn_web);
 	}
 	SET_BIT(ch->polyaff, POLY_SHADOW);
-	clear_stats(ch);
+	reset_form_stats(ch);
 	SET_BIT(ch->affected_by, AFF_POLYMORPH);
 	SET_BIT(ch->affected_by, AFF_ETHEREAL);
 	sprintf(buf, "A pool of shadow");
     	free_string( ch->morph );
     	ch->morph = str_dup( buf );
     }
+    do_autosave(ch, "");
     return;
 }
 

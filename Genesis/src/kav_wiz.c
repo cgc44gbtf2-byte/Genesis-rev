@@ -38,40 +38,10 @@
 
 void clear_stats( CHAR_DATA *ch )
 {
-    OBJ_DATA *obj;
-    OBJ_DATA *obj_next;
-
-    if (IS_NPC(ch)) return;
-
-    for ( obj = ch->carrying; obj != NULL; obj = obj_next )
-    {
-	obj_next = obj->next_content;
-	if ( obj->wear_loc != WEAR_NONE )
-	{obj_from_char(obj); obj_to_char(obj,ch);}
-    }
-    while ( ch->affected )
-	affect_remove( ch, ch->affected );
-    ch->armor			= 100;
-    ch->hitroll			= 0;
-    ch->damroll			= 0;
-    ch->saving_throw		= 0;
-    ch->pcdata->atm		= 0;
-    ch->pcdata->followers	= 0;
-
-    if (ch->polyaff > 0)
-    {
-	if (IS_POLYAFF(ch, POLY_BAT)   || IS_POLYAFF(ch, POLY_WOLF)    ||
-	    IS_POLYAFF(ch, POLY_MIST)  || IS_POLYAFF(ch, POLY_SERPENT) ||
-	    IS_POLYAFF(ch, POLY_RAVEN) || IS_POLYAFF(ch, POLY_FISH)    ||
-	    IS_POLYAFF(ch, POLY_FROG)  || IS_POLYAFF(ch, POLY_SHADOW)  )
-	{
-	    do_autosave( ch, "" );
-	    return;
-	}
-    }
-
+    /* Compatibility entry point for reset-and-save extensions. */
+    if (ch == NULL || IS_NPC(ch) || ch->pcdata == NULL) return;
+    reset_form_stats(ch);
     do_autosave( ch, "" );
-    return;
 }
 
 void do_delevel( CHAR_DATA *ch, char *argument )
