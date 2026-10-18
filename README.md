@@ -304,7 +304,7 @@ costs, ranks, skill slots, player-data layout or hybrid availability change.
 See [class ownership and the remaining cleanup stages](deploy/CLASS_LAYOUT.md)
 for the ten-class map, shared engine hooks and the separate saved-field
 migration work. `make test` now includes ten layout checks alongside
-22 C suites; `python3 tests/test_catalog.py` runs thirteen additional catalog checks.
+23 C suites; `python3 tests/test_catalog.py` runs fourteen additional catalog checks.
 Runtime optimization remains measurement-driven, not an assumed benefit of
 file organization.
 

@@ -69,12 +69,46 @@ Catalog checks validate all 27 craftable relic prototypes, weapon value ranges,
 Sorcerer material presence and Drow ammunition metadata in the bundled archive.
 The full regression and sanitizer suites are still necessary.
 
-Existing Drow `shoot` spends 500 Drow points and implements its projectile
-directly. It does not consume inventory ammunition or use the missile template's
-ammo-vnum field. The reference crossbow points to ammo 9315; a separate Drow
-bolt template 29659 also exists. This is an unfinished/legacy ammunition
-integration, not a new free bolt recipe. Misses and blocked shots retain their
-existing firing costs.
+## Drow ammunition follow-up
+
+`shoot <direction> <target>` now spends **500 Drow points plus one compatible
+loose projectile** from the shooter's direct inventory. A crossbow must be held
+in `WEAR_HOLD`. No reload command, magazine counter or stack quantity is
+introduced: one `ITEM_AMMO` object is one shot. Existing damage scaling and
+sleep-poison behavior remain; ammo damage fields do not introduce a new damage
+formula. Damage-roll multiplication is bounded to `number_range`'s int range.
+
+The native Drow crossbow is template **29658** and its bolt is **29659**.
+The reference world's crossbow still points to legacy ammo 9315. New crafting
+corrects that known reference without altering the prototype; already-saved
+native crossbows resolve it at firing time without rewriting saves. Other
+configured ammo vnums remain supported. Projectile type must match the weapon.
+
+Only unworn, directly carried ammunition is selected. Unowned world ammunition
+and the shooter's own ammunition are allowed; foreign-owned, artifact,
+character-shaped, content-bearing, worn and bagged objects are not consumed.
+Malformed weapon metadata and absent/incompatible ammo fail without payment.
+
+Bad syntax/directions, same-room targets, insufficient points, no held crossbow,
+source-room safety and protected visible targets do not consume ammo or points.
+Actual shots into empty rooms, nonexistent exits, closed doors or magical
+granite/water/wind/flame walls consume one projectile and 500 points. Magical
+walls now block the shot rather than allowing it to pass through.
+The shooter is never physically moved: room membership and stealth/darkness/
+silence remain intact on every exit path. The existing damage/poison safety
+checks and lethal-target cleanup remain in force.
+
+**Rollout prerequisite:** operators must stock the existing bolt template 29659
+through their world/shop tools before deploying this change. This patch does
+not add a free crafting recipe, new shop prices, loot resets or world-archive
+edits. Supplies and economy are an explicit operator decision; players without
+bolts can no longer fire. Back up the world/player data before any rollout.
+
+`test_drow_ammo` exercises the real engine's consumption, eligibility, ownership,
+custom/legacy compatibility, all five barrier types, misses, safety boundaries,
+room/stealth invariants, crafting and old-save/remaining-ammo persistence.
+The synthetic runtime suite separately covers lethal target removal,
+unavailable poison skills and negative/extreme damage-roll bounds.
 
 Sorcerer and Dragon have no dedicated relic crafting sets; this is a content
 gap, not an excuse to fabricate item stats or serialized class flags.

@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #endif
 #include <stdio.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -294,7 +295,7 @@ void do_drowarmor( CHAR_DATA *ch, char *argument )
     else if (!str_cmp(arg,"helmet")) vnum = 29653;
     else if (!str_cmp(arg,"breastplate")) vnum = 29654;
     else if (!str_cmp(arg,"bracer")) vnum = 29655;
-    else if (!str_cmp(arg,"crossbow")) vnum = 29658;
+    else if (!str_cmp(arg,"crossbow")) vnum = OBJ_VNUM_DROW_CROSSBOW;
     else
     {
 	do_drowarmor(ch,"");
@@ -308,6 +309,10 @@ void do_drowarmor( CHAR_DATA *ch, char *argument )
     }
 
     obj = create_object(pObjIndex, 50);
+    /* Correct only the known legacy arrow reference. Custom ammunition
+     * configurations remain untouched, as do existing saved objects. */
+    if (vnum == OBJ_VNUM_DROW_CROSSBOW && obj->value[0] == 9315)
+        obj->value[0] = OBJ_VNUM_DROW_BOLT;
     obj_to_char(obj, ch);
     ch->pcdata->classpoints[CP_CURRENT] -= 8000;
     ch->pcdata->quest -= 400;
@@ -595,6 +600,27 @@ void do_globedark( CHAR_DATA *ch, char *argument )
     return;
 }
 
+static OBJ_DATA *drow_shot_ammunition(CHAR_DATA *ch, const OBJ_DATA *weapon)
+{
+    if (weapon->pIndexData == NULL || weapon->value[3] < 0) return NULL;
+    long vnum = weapon->value[0];
+    if (weapon->pIndexData != NULL &&
+        weapon->pIndexData->vnum == OBJ_VNUM_DROW_CROSSBOW && vnum == 9315)
+        vnum = OBJ_VNUM_DROW_BOLT;
+    if (vnum <= 0) return NULL;
+    for (OBJ_DATA *ammo = ch->carrying; ammo != NULL; ammo = ammo->next_content) {
+        if (ammo == weapon || ammo->wear_loc != WEAR_NONE ||
+            ammo->item_type != ITEM_AMMO || ammo->pIndexData == NULL ||
+            ammo->pIndexData->vnum != vnum || ammo->value[3] != weapon->value[3] ||
+            ammo->chobj != NULL || ammo->contains != NULL ||
+            IS_SET(ammo->quest, QUEST_ARTIFACT)) continue;
+        if (ammo->questowner != NULL && ammo->questowner[0] != '\0' &&
+            str_cmp(ammo->questowner, ch->name)) continue;
+        return ammo;
+    }
+    return NULL;
+}
+
 void do_shoot( CHAR_DATA *ch, char *argument )
 {
     ROOM_INDEX_DATA *location;
@@ -602,8 +628,8 @@ void do_shoot( CHAR_DATA *ch, char *argument )
     EXIT_DATA *pexit;
     CHAR_DATA *victim;
     CHAR_DATA *live;
-    OBJ_DATA *obj;
-    AFFECT_DATA af;
+    OBJ_DATA *obj, *ammo;
+    AFFECT_DATA af = {0};
     char arg1[MIL];
     char arg2[MIL];
     char buf[MSL];
@@ -619,6 +645,7 @@ void do_shoot( CHAR_DATA *ch, char *argument )
 	stc("Huh?\n\r", ch);
 	return;
     }
+    if (ch->in_room == NULL) return;
 
     if (ch->pcdata->classpoints[CP_CURRENT] < 500)
     {
@@ -632,7 +659,7 @@ void do_shoot( CHAR_DATA *ch, char *argument )
 	return;
     }
 
-    if (arg1[0] == '\0' || arg2[0] == '\0')
+    if (arg1[0] == '\0' || arg2[0] == '\0' || argument[0] != '\0')
     {
 	stc("Syntax: shoot <direction> <target>.\n\r", ch);
 	return;
@@ -677,6 +704,26 @@ void do_shoot( CHAR_DATA *ch, char *argument )
     else return;
 
     location = ch->in_room;
+    ammo = drow_shot_ammunition(ch, obj);
+    if (ammo == NULL)
+    {
+        stc("You need compatible, unworn ammunition in your inventory.\n\r", ch);
+        return;
+    }
+    /* A protected target is not an attempted shot. Check safety in the
+     * destination view, then restore the real room before paying/extracting.
+     * Missing exits, closed doors and misses retain their old shot costs. */
+    pexit = location->exit[door];
+    to_room = pexit != NULL ? pexit->to_room : NULL;
+    if (to_room != NULL && !IS_SET(pexit->exit_info,
+        EX_CLOSED | EX_WALL_GRANITE | EX_WALL_WATER | EX_WALL_WIND | EX_WALL_FLAME))
+    {
+        ch->in_room = to_room;
+        victim = get_char_room(ch, arg2);
+        bool blocked = victim != NULL && is_safe(ch, victim);
+        ch->in_room = location;
+        if (blocked) return;
+    }
 
     sprintf(buf, "You point $p %s and shoot.", arg1);
     act(buf, ch, obj, NULL, TO_CHAR);
@@ -684,6 +731,7 @@ void do_shoot( CHAR_DATA *ch, char *argument )
     act(buf, ch, obj, NULL, TO_ROOM);
 
     ch->pcdata->classpoints[CP_CURRENT] -= 500;
+    extract_obj(ammo); /* One object is one projectile; never dereference again. */
 
     if ((pexit = ch->in_room->exit[door]) == NULL || (to_room = pexit->to_room) == NULL)
     {
@@ -693,10 +741,11 @@ void do_shoot( CHAR_DATA *ch, char *argument )
     }
 
     pexit = ch->in_room->exit[door];
-    if (IS_SET(pexit->exit_info, EX_CLOSED))
+    if (IS_SET(pexit->exit_info,
+        EX_CLOSED | EX_WALL_GRANITE | EX_WALL_WATER | EX_WALL_WIND | EX_WALL_FLAME))
     {
-	act("$n's crossbow bolt bounces off a door.", ch, NULL, NULL, TO_ROOM);
-	act("Your crossbow bolt bounces off a door.", ch, NULL, NULL, TO_CHAR);
+act("$n's crossbow bolt strikes a barrier.", ch, NULL, NULL, TO_ROOM);
+act("Your crossbow bolt strikes a barrier.", ch, NULL, NULL, TO_CHAR);
 	return;
     }
 
@@ -715,7 +764,10 @@ void do_shoot( CHAR_DATA *ch, char *argument )
 	sprintf(buf, "A crossbow bolt comes flying in from the %s and strikes you.", revdoor);
 	act(buf, ch, NULL, victim, TO_VICT);
 
-	damage = number_range(10 * char_damroll(ch), 20 * char_damroll(ch));
+/* number_range accepts int bounds, even on 64-bit player-stat builds. */
+long damroll = char_damroll(ch);
+damroll = URANGE(0, damroll, INT_MAX / 20);
+damage = number_range((int)(10 * damroll), (int)(20 * damroll));
 	if (!IS_NPC(victim)) damage /= 10;
 
 	hurt_person(ch, victim, damage);

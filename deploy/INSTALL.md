@@ -9,6 +9,13 @@ does not grant them.
 
 ## 1. Prepare and preserve existing state
 
+**Drow ammunition:** before deploying this version, stock the existing Drow
+bolt template `29659` through your world/shop tools. Shooting now requires one
+compatible loose projectile plus the existing 500 Drow points. No bolt recipes,
+shop prices or loot resets are installed automatically; see
+[CLASS_GEAR.md](CLASS_GEAR.md#drow-ammunition-follow-up) for compatibility and
+rollout details. Existing player files do not need rewriting.
+
 **Do not copy these commands over an existing installation blindly.** Inspect
 `/opt/anathema`, `/var/lib/anathema`, the `anathema` user/group and any existing
 unit first. If they exist, follow the upgrade section instead of the fresh

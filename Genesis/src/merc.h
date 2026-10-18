@@ -840,6 +840,10 @@ extern CHAR_DATA Score_ch;      /* Score_ch */
 #define OBJ_VNUM_LIGHT_BALL	     21
 #define OBJ_VNUM_SPRING		     22
 
+/* Existing relic.are templates; no new serialized object fields. */
+#define OBJ_VNUM_DROW_CROSSBOW 29658
+#define OBJ_VNUM_DROW_BOLT     29659
+
 /* For KaVir's stuff */
 #define OBJ_VNUM_SOULBLADE	  30000
 #define OBJ_VNUM_PORTAL		  30001

@@ -3,6 +3,7 @@
  * No production accounts, areas or objects are loaded. */
 #include <assert.h>
 #include <ctype.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +15,10 @@ static PC_DATA caster_pc, opponent_pc, target_pc;
 static ROOM_INDEX_DATA home, remote;
 static EXIT_DATA exit_north;
 static OBJ_DATA crossbow;
+static OBJ_DATA ammunition;
+static OBJ_INDEX_DATA ammunition_index, crossbow_index;
+static int spent_bolts;
+static long attack_roll = 100;
 static bool lethal, protected_target, missing_skill;
 static bool relocate_caster;
 static int hit_calls, damage_calls, poison_calls, observed_victim_lag;
@@ -39,7 +44,7 @@ long get_highland(CHAR_DATA *ch, long p) { (void)ch; (void)p; return 6; }
 long get_breed(CHAR_DATA *ch, long p) { (void)ch; (void)p; return 0; }
 long get_tribe(CHAR_DATA *ch, long p) { (void)ch; (void)p; return 5; }
 bool get_drow(CHAR_DATA *ch, long p) { (void)ch; (void)p; return TRUE; }
-long char_damroll(CHAR_DATA *ch) { (void)ch; return 100; }
+long char_damroll(CHAR_DATA *ch) { (void)ch; return attack_roll; }
 int char_stat(CHAR_DATA *ch, int stat) { (void)ch; (void)stat; return 2; }
 int number_range(int a, int b) { assert(a <= b); return b; }
 int number_percent(void) { return 100; }
@@ -119,6 +124,13 @@ OBJ_DATA *get_eq_char(CHAR_DATA *ch, long wear)
 {
     assert(ch == &caster);
     return wear == WEAR_HOLD || wear == WEAR_WEAPON ? &crossbow : NULL;
+}
+
+void extract_obj(OBJ_DATA *obj)
+{
+    assert(obj == &ammunition && caster.carrying == obj);
+    caster.carrying = obj->next_content;
+    ++spent_bolts;
 }
 
 static void fresh(long class)
@@ -247,11 +259,24 @@ static void test_control_death(void)
 static void shooting_fixture(void)
 {
     fresh(CLASS_DROW);
+    attack_roll = 100;
     caster.fighting = NULL;
     caster.affected_by |= AFF_HIDE;
     caster.more |= MORE_DARKNESS | MORE_SILENCE;
     caster_pc.classpoints[CP_CURRENT] = 1000;
     crossbow.item_type = ITEM_MISSILE;
+    memset(&ammunition, 0, sizeof(ammunition));
+    ammunition_index.vnum = OBJ_VNUM_DROW_BOLT;
+    crossbow_index.vnum = OBJ_VNUM_DROW_CROSSBOW;
+    crossbow.pIndexData = &crossbow_index;
+    crossbow.value[0] = 9315; /* Existing saves must work without migration. */
+    crossbow.value[3] = 3;
+    ammunition.item_type = ITEM_AMMO;
+    ammunition.pIndexData = &ammunition_index;
+    ammunition.value[3] = 3;
+    ammunition.wear_loc = WEAR_NONE;
+    caster.carrying = &ammunition;
+    spent_bolts = 0;
     exit_north.to_room = &remote;
     home.exit[0] = &exit_north;
     char_from_room(target);
@@ -278,6 +303,7 @@ static void test_crossbow(void)
     assert(!target && damage_calls == 1 && poison_calls == 0);
     assert_home();
     assert(caster_pc.classpoints[CP_CURRENT] == 500);
+    assert(spent_bolts == 1 && !caster.carrying);
     shooting_fixture();
     missing_skill = TRUE;
     do_shoot(&caster, "north target");
@@ -287,6 +313,7 @@ static void test_crossbow(void)
     protected_target = TRUE;
     do_shoot(&caster, "north target");
     assert(damage_calls == 0 && poison_calls == 0);
+    assert(spent_bolts == 0 && caster_pc.classpoints[CP_CURRENT] == 1000);
     assert_home();
     shooting_fixture();
     do_shoot(&caster, "north missing");
@@ -295,6 +322,16 @@ static void test_crossbow(void)
     shooting_fixture();
     do_shoot(&caster, "north target");
     assert(damage_calls == 1 && poison_calls == 1 && target->position == POS_SLEEPING);
+    assert_home();
+    shooting_fixture();
+    attack_roll = LONG_MAX;
+    do_shoot(&caster, "north target");
+    assert(damage_calls == 1 && spent_bolts == 1);
+    assert_home();
+    shooting_fixture();
+    attack_roll = -1;
+    do_shoot(&caster, "north target");
+    assert(damage_calls == 1 && spent_bolts == 1);
     assert_home();
 }
 

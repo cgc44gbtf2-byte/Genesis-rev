@@ -34,6 +34,18 @@ def bundled_objects(path):
 
 
 class CatalogChecks(unittest.TestCase):
+    def test_drow_ammunition_constants_match_existing_world_templates(self):
+        header = (SRC / "merc.h").read_text()
+        expected = {"OBJ_VNUM_DROW_CROSSBOW": (29658, 31),
+                    "OBJ_VNUM_DROW_BOLT": (29659, 32)}
+        relics = bundled_objects("relic.are")
+        for name, (vnum, kind) in expected.items():
+            match = re.search(r"^#define\s+" + name + r"\s+(\d+)\s*$", header, re.M)
+            self.assertIsNotNone(match, name)
+            self.assertEqual(int(match[1]), vnum)
+            self.assertEqual(relics[vnum][0], kind)
+        self.assertEqual(relics[29658][1][3], relics[29659][1][3])
+
     def test_class_crafting_templates_exist_with_expected_types(self):
         relics = bundled_objects("relic.are")
         weapons = {29621, 29639, 29650}
