@@ -55,6 +55,7 @@ void char_to_room(CHAR_DATA *ch, ROOM_INDEX_DATA *room)
 }
 bool is_safe(CHAR_DATA *ch, CHAR_DATA *victim)
 {
+    assert(ch->in_room != NULL);
     assert(ch->in_room == victim->in_room);
     ++safe_calls;
     return protected_room;
@@ -143,6 +144,20 @@ static void unchanged(long mana)
 
 int main(void)
 {
+    reset();
+    assert(!mage_target_safe(&caster, &caster));
+    unchanged(100000);
+    assert(safe_calls == 1);
+    protected_room = TRUE;
+    assert(mage_target_safe(&caster, &caster));
+    unchanged(100000);
+    reset();
+    char_from_room(&target);
+    char_to_room(&target, &home);
+    assert(!mage_target_safe(&caster, &target));
+    assert(home.people == &target && target.next_in_room == &caster);
+    assert(caster.next_in_room == NULL && caster.in_room == &home);
+    assert(remote.people == NULL && safe_calls == 1);
     reset();
     {
         CHAR_DATA *mob = calloc(1, sizeof(*mob));

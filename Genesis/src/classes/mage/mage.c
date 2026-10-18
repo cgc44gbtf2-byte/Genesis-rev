@@ -33,17 +33,19 @@ static bool parse_quint(CHAR_DATA *ch, const char *text, long *quint)
     return TRUE;
 }
 
-/* is_safe examines the caster's room. Always undo the temporary move. */
+/* is_safe examines the caster's room. Local targets need no move; removing
+ * a self-target also clears victim->in_room. Undo actual remote moves. */
 static bool mage_target_safe(CHAR_DATA *ch, CHAR_DATA *victim)
 {
     ROOM_INDEX_DATA *location = ch->in_room;
     bool safe;
 
-    if (location == NULL || victim->in_room == NULL)
+    if (victim == NULL || location == NULL || victim->in_room == NULL)
     {
         send_to_char("They aren't here.\n\r", ch);
         return TRUE;
     }
+    if (location == victim->in_room) return is_safe(ch, victim);
     char_from_room(ch);
     char_to_room(ch, victim->in_room);
     safe = is_safe(ch, victim);

@@ -408,3 +408,13 @@ rollback. Primary and backup are independently atomic, not a two-file
 transaction; retries use the existing autosave path. This does not repair
 pre-existing inconsistent saves or finish follower accounting, ownership of
 overlapping temporary flags, class teardown or hybrid migration.
+
+### Mage self-targeting combat preflight
+
+Native-engine duel preparation reproduced a null-room crash when a Mage
+used Better Body on themselves. The shared safety helper no longer removes
+a caster from the room for self-targets or other same-room targets, and
+still calls the normal safety check. Remote targets retain the existing
+temporary move and restoration. Regression cases cover self-targets,
+protected self-targets and preservation of same-room character links.
+Spell costs, rank gates and numerical effects are unchanged.
