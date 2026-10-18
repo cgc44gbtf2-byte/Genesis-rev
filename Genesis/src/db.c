@@ -30,6 +30,7 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <time.h>
 #include "merc.h"
@@ -1644,6 +1645,17 @@ void reset_area( AREA_DATA *pArea )
 /*
  * Create an instance of a mobile.
  */
+/* At level 6309 even the smallest old HP roll exceeds the existing cap.
+ * Clamp before squaring/narrowing; stock worlds include much higher levels. */
+static long mobile_hit_points(long level)
+{
+    if (level>=6309) return 10000000;
+    if (level<1) level=1;
+    long square=level*level;
+    long hp=level*8+number_range((int)(square/4),(int)square);
+    return UMIN(10000000,hp);
+}
+
 CHAR_DATA *create_mobile( MOB_INDEX_DATA *pMobIndex )
 {
     CHAR_DATA *mob;
@@ -1706,9 +1718,7 @@ CHAR_DATA *create_mobile( MOB_INDEX_DATA *pMobIndex )
     mob->sex		= pMobIndex->sex;
     mob->armor		= interpolate( mob->level, 0, 100);
 
-    tempvalue		= mob->level * 8 + number_range(mob->level * mob->level / 4, mob->level * mob->level);
-    if (tempvalue > 10000000) mob->max_hit = 10000000;
-    else mob->max_hit	= tempvalue;
+    mob->max_hit=mobile_hit_points(mob->level);
 
     mob->hit		= mob->max_hit;
 
@@ -2633,18 +2643,24 @@ int number_fuzzy( int number )
  */
 int number_range( int from, int to )
 {
-    int power;
-    int number;
-
-    if ( ( to = to - from + 1 ) <= 1 )
-	return from;
-
-    for ( power = 2; power < to; power <<= 1 )
-	;
-
-    while ( ( number = number_mm( ) & (power - 1) ) >= to )
-	;
-    return from + number;
+    /* Preserve legacy constant/reversed-range behavior and exact RNG draws
+     * for ordinary spans. MM supplies 24 bits, not a full signed int. */
+    if (to<=from) return from;
+    uint64_t span=(uint64_t)((int64_t)to-(int64_t)from)+1;
+    if (span<=((uint64_t)1<<24)) {
+        uint32_t power=2,number;
+        while (power<span) power<<=1;
+        do { number=(uint32_t)number_mm()&(power-1); } while(number>=span);
+        return (int)((int64_t)from+number);
+    }
+    /* Assemble 32 random bits and reject the uneven tail, including the
+     * full INT_MIN..INT_MAX case without signed overflow or modulo bias. */
+    uint64_t universe=(uint64_t)1<<32;
+    uint64_t limit=universe-universe%span,number;
+    do {
+        number=((uint32_t)number_mm()<<8)|((uint32_t)number_mm()&255u);
+    } while(number>=limit);
+    return (int)((int64_t)from+(int64_t)(number%span));
 }
 
 

@@ -331,6 +331,12 @@ uses a checked atomic handoff and failure-safe socket flags. The isolated
 `python3 tests/smoke_copyover.py` exercises real exec and active TCP recovery.
 Upgrade instructions and limits: [restart safety](deploy/RESTART_SAFETY.md).
 
+The sanitizer gate also builds the full server and exercises stock-world
+boot, TCP/TERM and real copyover under ASan/UBSan with fatal diagnostics.
+High-level NPC HP is capped before unsafe squaring/narrowing. Random ranges
+support the full signed-int domain without overflow or a 24-bit ceiling;
+ordinary spans retain the legacy RNG sequence and reversed-range behavior.
+
 The first bounded extraction moved six existing Vampire/Werewolf handlers out
 of `clan.c`: Majesty, Awe, Humanity, Beastlike, Umbral Vision and Rage. Their
 function bodies are byte-identical to the previous head; shared Fangs, Claws,

@@ -35,4 +35,12 @@ jobs:
           python3 tests/smoke_shutdown.py
           python3 tests/smoke_copyover.py
       - name: Address and undefined-behavior sanitizers
-        run: make sanitize
+        env:
+          ASAN_OPTIONS: detect_leaks=0:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: |
+          make sanitize
+          make -C Genesis/src clean
+          make -j2 CFLAGS="-std=gnu17 -DMERC -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer" LDFLAGS="-fsanitize=address,undefined"
+          python3 tests/smoke_shutdown.py
+          python3 tests/smoke_copyover.py

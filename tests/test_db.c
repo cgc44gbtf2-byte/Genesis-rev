@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <limits.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include "../Genesis/src/db.c"
@@ -34,8 +35,56 @@ static void expect_failure(int kind)
     assert(WIFEXITED(status) && WEXITSTATUS(status) == 1);
 }
 
+static int old_small_range(int from,int to)
+{
+    int power=2,number;
+    if ((to=to-from+1)<=1) return from;
+    while (power<to) power<<=1;
+    do { number=number_mm()&(power-1); } while(number>=to);
+    return from+number;
+}
+
+static void random_and_mobile_bounds(void)
+{
+    int before[57],after[57];
+    current_time=1792252800; init_mm();
+    const int ordinary[][2]={{1,100},{-1000,1000},{0,16777215},
+        {INT_MIN,INT_MIN+100},{INT_MAX-100,INT_MAX},{10,-10},{7,7}};
+    for (int i=0;i<100;++i)
+        for (size_t j=0;j<sizeof(ordinary)/sizeof(ordinary[0]);++j) {
+            memcpy(before,rgiState,sizeof(before));
+            int expected=old_small_range(ordinary[j][0],ordinary[j][1]);
+            memcpy(after,rgiState,sizeof(after));
+            memcpy(rgiState,before,sizeof(before));
+            assert(number_range(ordinary[j][0],ordinary[j][1])==expected);
+            assert(memcmp(rgiState,after,sizeof(after))==0);
+        }
+    bool upper=FALSE,negative=FALSE,positive=FALSE;
+    for (int i=0;i<2048;++i) {
+        int large=number_range(0,40000000);
+        assert(large>=0 && large<=40000000);
+        if (large>16777215) upper=TRUE;
+        int full=number_range(INT_MIN,INT_MAX);
+        if (full<0) negative=TRUE; else positive=TRUE;
+        int cross=number_range(-1900000000,900000000);
+        assert(cross>=-1900000000 && cross<=900000000);
+    }
+    assert(upper && negative && positive);
+    for (int i=0;i<64;++i) {
+        long hp=mobile_hit_points(1000);
+        assert(hp>=258000 && hp<=1008000);
+        hp=mobile_hit_points(6308);
+        assert(hp>=9998180 && hp<=10000000);
+    }
+    assert(mobile_hit_points(6309)==10000000);
+    assert(mobile_hit_points(500003)==10000000);
+    assert(mobile_hit_points(INT_MAX)==10000000);
+    assert(mobile_hit_points(LONG_MAX)==10000000);
+}
+
 int main(void)
 {
+    random_and_mobile_bounds();
     FILE *fp;
     char cwd[4096], temp[] = "/tmp/anathema-db-XXXXXX";
     assert(getcwd(cwd, sizeof(cwd)));
