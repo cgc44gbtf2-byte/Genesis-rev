@@ -869,6 +869,9 @@ void do_quit( CHAR_DATA *ch, char *argument )
 	return;
     }
 
+    /* Idle auto-quit reaches the original, whose descriptor lives on its NPC. */
+    restore_player_control(ch);
+
     if (ch->fight_timer > 0)
     {
 	stc("Not with a fight timer.\n\r", ch);
@@ -913,7 +916,10 @@ void do_quit( CHAR_DATA *ch, char *argument )
     send_to_char( "     Lewis Carroll\n\r\n\r", ch);
 
     /* Free note that might be there somehow */
-    if (ch->pcdata->in_progress) free_note(ch->pcdata->in_progress);
+    if (ch->pcdata->in_progress) {
+        free_note(ch->pcdata->in_progress);
+        ch->pcdata->in_progress = NULL;
+    }
 
     /*
      * After extract_char the ch is no longer valid!

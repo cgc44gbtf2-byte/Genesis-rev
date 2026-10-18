@@ -366,6 +366,12 @@ void	bust_a_prompt		args( ( DESCRIPTOR_DATA *d ) );
 /* Needs to be global because of do_copyover */
 int port, control;
 
+static void record_descriptor_activity(DESCRIPTOR_DATA *d)
+{
+    if (d->character != NULL) d->character->timer = 0;
+    if (d->original != NULL) d->original->timer = 0;
+}
+
 int main( int argc, char **argv )
 {
     struct timeval now_time;
@@ -595,8 +601,7 @@ void game_loop_mac_msdos( void )
 	    if ( kbhit( ) )
 #endif
 	    {
-		if ( d->character != NULL )
-		    d->character->timer = 0;
+record_descriptor_activity(d);
 		if ( !read_from_descriptor( d ) )
 		{
 		    if ( d->character != NULL )
@@ -696,8 +701,7 @@ void game_loop_mac_msdos( void )
 	    if ( kbhit( ) )
 #endif
 	    {
-		if ( dcon.character != NULL )
-		    dcon.character->timer = 0;
+record_descriptor_activity(&dcon);
 		if ( !read_from_descriptor( &dcon ) )
 		{
 		    if ( dcon.character != NULL )
@@ -765,10 +769,7 @@ static void save_shutdown_players( void )
         if ( IS_NPC(ch) || ch->pcdata == NULL || ch->in_room == NULL
         || ch->name == NULL || ch->name[0] == '\0' || ch->level < 2 )
             continue;
-        if ( d != NULL && d->connected != CON_PLAYING
-        && d->connected != CON_AEDITOR && d->connected != CON_REDITOR
-        && d->connected != CON_OEDITOR && d->connected != CON_MEDITOR
-        && !(d->connected >= CON_NOTE_TO && d->connected <= CON_NOTE_FINISH) )
+        if ( d != NULL && !descriptor_is_in_game(d) )
             continue;
 
         ch->desc = NULL;
@@ -875,8 +876,7 @@ void game_loop_unix( int control )
 
 	    if ( FD_ISSET( d->descriptor, &in_set ) )
 	    {
-		if ( d->character != NULL )
-		    d->character->timer = 0;
+record_descriptor_activity(d);
 		if ( !read_from_descriptor( d ) )
 		{
 		    FD_CLR( d->descriptor, &out_set );
@@ -1192,8 +1192,7 @@ void close_socket( DESCRIPTOR_DATA *dclose )
 	log_string( log_buf );
 
         /* If ch is writing note or playing, just lose link otherwise clear char */
-        if ( (dclose->connected == CON_PLAYING) ||
-	 ((dclose->connected >= CON_NOTE_TO) && (dclose->connected <= CON_NOTE_FINISH)))
+        if ( descriptor_is_in_game(dclose) )
 	{
 	    if (IS_NPC(ch) || ch->pcdata->obj_vnum == 0)
 	    	act( "$n has lost $s link.", ch, NULL, NULL, TO_ROOM );
@@ -1221,6 +1220,8 @@ void close_socket( DESCRIPTOR_DATA *dclose )
 	    bug( "Close_socket: dclose not found.", 0 );
     }
 
+    dclose->character = NULL;
+    dclose->original = NULL;
     close( dclose->descriptor );
     free_string( dclose->host );
 
@@ -1277,7 +1278,7 @@ void close_socket2( DESCRIPTOR_DATA *dclose )
 
     if ( ( ch = dclose->character ) != NULL )
     {
-	if ( dclose->connected == CON_PLAYING )
+	if ( descriptor_is_in_game(dclose) )
 	{
 	    ch->desc = NULL;
 	}
@@ -1306,6 +1307,8 @@ void close_socket2( DESCRIPTOR_DATA *dclose )
 	    bug( "Close_socket: dclose not found.", 0 );
     }
 
+    dclose->character = NULL;
+    dclose->original = NULL;
     close( dclose->descriptor );
     free_string( dclose->host );
 
@@ -2625,6 +2628,7 @@ bool check_playing( DESCRIPTOR_DATA *d, char *name )
 	    d->character->desc = d;
     if ( d->original != NULL )
         d->original->desc = NULL; /* Preserve do_switch/do_return ownership. */
+    record_descriptor_activity(d);
 	    send_to_char( "You take over your body, which was already in use.\n\r", d->character );
 	    act( "$n doubles over in agony and $s eyes roll up into $s head.", d->character, NULL, NULL, TO_ROOM );
 	    act( "...$n's body has been taken over by another spirit!", d->character, NULL, NULL, TO_ROOM );

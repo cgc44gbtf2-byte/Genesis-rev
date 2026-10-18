@@ -1281,6 +1281,28 @@ void obj_from_obj( OBJ_DATA *obj )
 /*
  * Extract an obj from the world.
  */
+/* Never follow a transient ownership pointer before checking the live list.
+ * Character storage is recycled, so reciprocity is required even when live. */
+static CHAR_DATA *live_character_link(CHAR_DATA *link)
+{
+    if (link == NULL) return NULL;
+    for (CHAR_DATA *ch = char_list; ch != NULL; ch = ch->next)
+        if (ch == link) return ch;
+    return NULL;
+}
+
+static void recover_object_location(CHAR_DATA *ch)
+{
+    ROOM_INDEX_DATA *altar = get_room_index(ROOM_VNUM_ALTAR);
+    if (altar == NULL) {
+        /* Do not strand a recovered character by removing its current room. */
+        bug("Object recovery: missing altar; retaining current room.",0);
+        return;
+    }
+    if (ch->in_room != NULL) char_from_room(ch);
+    char_to_room(ch,altar);
+}
+
 void extract_obj( OBJ_DATA *obj )
 {
     CHAR_DATA *ch;
@@ -1305,22 +1327,23 @@ void extract_obj( OBJ_DATA *obj )
     else if (obj->carried_by != NULL) obj_from_char(obj);
     else if (obj->in_obj != NULL) obj_from_obj(obj);
 
-    if ((ch = obj->chobj) != NULL && !IS_NPC(ch) && ch->pcdata->chobj == obj && IS_MORE(ch, MORE_HEAD))
+    ch = live_character_link(obj->chobj);
+    if (ch != NULL && !IS_NPC(ch) && ch->pcdata != NULL &&
+        ch->pcdata->chobj == obj && IS_MORE(ch, MORE_HEAD))
     {
 	REMOVE_BIT(ch->more, MORE_HEAD);
 	REMOVE_BIT(ch->affected_by, AFF_POLYMORPH);
 	free_string(ch->morph);
 	ch->morph = str_dup("");
 	ch->hit = 1;
-	char_from_room(ch);
-	char_to_room(ch, get_room_index(ROOM_VNUM_ALTAR));
+	recover_object_location(ch);
 	ch->pcdata->chobj = NULL;
 	obj->chobj = NULL;
 	stc("You have been KILLED!!\n\r", ch);
 	do_look(ch, "auto");
 	ch->position = POS_RESTING;
     }
-    else if ((ch = obj->chobj) != NULL && !IS_NPC(ch) && ch->pcdata->chobj == obj
+    else if (ch != NULL && !IS_NPC(ch) && ch->pcdata != NULL && ch->pcdata->chobj == obj
      && (IS_EXTRA(ch, EXTRA_OSWITCH) || ch->pcdata->obj_vnum != 0))
     {
 	if (ch->pcdata->obj_vnum != 0)
@@ -1335,8 +1358,7 @@ void extract_obj( OBJ_DATA *obj )
 	    REMOVE_BIT(ch->affected_by, AFF_POLYMORPH);
 	    free_string(ch->morph);
 	    ch->morph = str_dup("");
-	    char_from_room(ch);
-	    char_to_room(ch, get_room_index(ROOM_VNUM_ALTAR));
+	    recover_object_location(ch);
 	    ch->pcdata->chobj = NULL;
 	    obj->chobj = NULL;
 	    stc("You return to your body.\n\r", ch);
@@ -1344,7 +1366,9 @@ void extract_obj( OBJ_DATA *obj )
     }
     else if (obj->chobj != NULL)
     {
-	if (!IS_NPC(obj->chobj)) obj->chobj->pcdata->chobj = NULL;
+	/* A stale old form must not erase the character's newer valid form. */
+	if (ch != NULL && !IS_NPC(ch) && ch->pcdata != NULL &&
+	    ch->pcdata->chobj == obj) ch->pcdata->chobj = NULL;
 	obj->chobj = NULL;
 	bug( "Extract_obj: obj %li chobj invalid.", obj->pIndexData->vnum );
     }
@@ -1430,11 +1454,58 @@ void extract_obj( OBJ_DATA *obj )
 /*
  * Extract a char from the world.
  */
+void restore_player_control(CHAR_DATA *ch)
+{
+    if (ch == NULL || IS_NPC(ch)) return;
+    for (DESCRIPTOR_DATA *d = descriptor_list; d != NULL; d = d->next) {
+        if (d->original != ch) continue;
+        CHAR_DATA *body = live_character_link(d->character);
+        if (body != NULL && body->desc == d) {
+            do_return(body,"");
+        } else {
+            d->original = NULL;
+            d->character = ch;
+            ch->desc = d;
+            REMOVE_BIT(ch->extra,EXTRA_SWITCH);
+        }
+        return;
+    }
+}
+
+/* Clear inbound links too: a past one-sided relationship must never survive
+ * its owner's deletion. Only a reciprocal current familiar may be retired.
+ * A class reset releases control without destroying the existing NPC. */
+void release_character_links(CHAR_DATA *ch, bool retire_familiar)
+{
+    if (ch == NULL || IS_NPC(ch) || ch->pcdata == NULL) return;
+    restore_player_control(ch);
+    CHAR_DATA *familiar = live_character_link(ch->pcdata->familiar);
+    bool owns_familiar = familiar != NULL && familiar->wizard == ch;
+    ch->pcdata->familiar = NULL;
+    ch->pcdata->chobj = NULL;
+    ch->pcdata->propose = NULL;
+    ch->embrace = NULL;
+    ch->embraced = ARE_NONE;
+    for (OBJ_DATA *obj = object_list; obj != NULL; obj = obj->next)
+        if (obj->chobj == ch) obj->chobj = NULL;
+    for (CHAR_DATA *other = char_list; other != NULL; other = other->next) {
+        if (other->wizard == ch) other->wizard = NULL;
+        if (other->embrace == ch) {
+            other->embrace = NULL;
+            other->embraced = ARE_NONE;
+        }
+        if (!IS_NPC(other) && other->pcdata != NULL &&
+            other->pcdata->propose == ch) other->pcdata->propose = NULL;
+    }
+    if (retire_familiar && owns_familiar && IS_NPC(familiar)) {
+        act("$n slowly fades away to nothing.",familiar,NULL,NULL,TO_ROOM);
+        extract_char(familiar,TRUE);
+    }
+}
+
 void extract_char( CHAR_DATA *ch, bool fPull )
 {
     CHAR_DATA *wch;
-    CHAR_DATA *familiar;
-    CHAR_DATA *wizard;
     OBJ_DATA *obj;
     OBJ_DATA *obj_next;
 
@@ -1446,6 +1517,23 @@ void extract_char( CHAR_DATA *ch, bool fPull )
 	return;
     }
 
+    if (fPull && !IS_NPC(ch)) {
+        restore_player_control(ch);
+        /* An original has no ch->desc while switched. Close every descriptor
+         * that owns this player before recycling it, including that case.
+         * Detach first so closing cannot free the character a second time. */
+        for (DESCRIPTOR_DATA *d = descriptor_list, *next; d != NULL; d = next) {
+            next = d->next;
+            if (d->character != ch && d->original != ch) continue;
+            CHAR_DATA *body = live_character_link(d->character);
+            if (body != NULL && body->desc == d) body->desc = NULL;
+            if (ch->desc == d) ch->desc = NULL;
+            d->character = NULL;
+            d->original = NULL;
+            close_socket(d);
+        }
+        release_character_links(ch,TRUE);
+    }
     die_follower(ch);
     stop_fighting(ch, TRUE);
 
@@ -1460,7 +1548,11 @@ void extract_char( CHAR_DATA *ch, bool fPull )
     if (IS_NPC(ch)) --ch->pIndexData->count;
     else if (ch->pcdata->chobj != NULL)
     {
-	ch->pcdata->chobj->chobj = NULL;
+	for (OBJ_DATA *linked = object_list; linked != NULL; linked = linked->next)
+	    if (linked == ch->pcdata->chobj && linked->chobj == ch) {
+	        linked->chobj = NULL;
+	        break;
+	    }
 	ch->pcdata->chobj = NULL;
     }
 
@@ -1475,6 +1567,15 @@ void extract_char( CHAR_DATA *ch, bool fPull )
     for (wch = char_list; wch != NULL; wch = wch->next)
     {
 	if (wch->reply == ch) wch->reply = NULL;
+	if (wch->wizard == ch) wch->wizard = NULL;
+	if (wch->embrace == ch) {
+	    wch->embrace = NULL;
+	    wch->embraced = ARE_NONE;
+	}
+	if (!IS_NPC(wch) && wch->pcdata != NULL) {
+	    if (wch->pcdata->familiar == ch) wch->pcdata->familiar = NULL;
+	    if (wch->pcdata->propose == ch) wch->pcdata->propose = NULL;
+	}
     }
 
     if (ch == char_list)
@@ -1502,39 +1603,6 @@ void extract_char( CHAR_DATA *ch, bool fPull )
     }
 
     if (ch->desc) ch->desc->character = NULL;
-
-    if ((wizard = ch->wizard) != NULL)
-    {
-	if (!IS_NPC(wizard)) wizard->pcdata->familiar = NULL;
-	ch->wizard = NULL;
-    }
-
-    if ((familiar = ch->embrace) != NULL)
-    {
-	ch->embrace = NULL;
-	ch->embraced = ARE_NONE;
-	familiar->embrace = NULL;
-	familiar->embraced = ARE_NONE;
-    }
-
-    if (!IS_NPC(ch))
-    {
-	if ((familiar = ch->pcdata->propose) != NULL)
-	{
-	    ch->pcdata->propose = NULL;
-	    familiar->pcdata->propose = NULL;
-	}
-	if ((familiar = ch->pcdata->familiar) != NULL)
-	{
-	    familiar->wizard = NULL;
-	    ch->pcdata->familiar = NULL;
-	    if (IS_NPC(familiar))
-	    {
-		act("$n slowly fades away to nothing.", familiar, NULL, NULL, TO_ROOM);
-		extract_char(familiar, TRUE);
-	    }
-	}
-    }
 
     if (IS_NPC(ch) && strlen(ch->lord) > 1)
     {

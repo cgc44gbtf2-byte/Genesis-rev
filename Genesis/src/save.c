@@ -111,7 +111,7 @@ static bool save_player_atomic(CHAR_DATA *ch, const char *directory)
     if ( ch == NULL )
         return FALSE;
 
-    if ( ch->desc != NULL && ch->desc->connected != CON_PLAYING )
+    if ( ch->desc != NULL && !descriptor_is_in_game(ch->desc) )
         return FALSE;
 
     if ( ch->desc != NULL && ch->desc->original != NULL )

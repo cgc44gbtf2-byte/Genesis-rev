@@ -499,9 +499,12 @@ static void test_switched_takeover(void)
     assert(old.original == &player && descriptor_list == &old);
     fail_gensalt = 0;
     assert(password_prepare_live(&incoming, "live-password"));
+    player.timer = 21;
+    npc.timer = 13;
     assert(check_playing(&incoming, shell.name));
     assert(incoming.character == &npc && incoming.original == &player);
     assert(npc.desc == &incoming && player.desc == NULL);
+    assert(npc.timer == 0 && player.timer == 0);
     assert(old.character == NULL && old.original == NULL);
     assert(password_upgrade(&incoming, "live-password"));
     fail_save = 1;
@@ -603,6 +606,25 @@ static void test_prompt_drain(void)
     free_mem(d.outbuf, d.outsize);
 }
 
+static void test_switched_activity(void)
+{
+    DESCRIPTOR_DATA d = {0};
+    CHAR_DATA body = {0}, original = {0};
+    body.timer = 17;
+    original.timer = 19;
+    d.character = &body; d.original = &original;
+    record_descriptor_activity(&d);
+    assert(body.timer == 0 && original.timer == 0);
+    d.character = NULL; original.timer = 11;
+    record_descriptor_activity(&d);
+    assert(original.timer == 0);
+    d.original = NULL;
+    record_descriptor_activity(&d);
+    d.character = &original; original.timer = 13;
+    record_descriptor_activity(&d);
+    assert(original.timer == 0);
+}
+
 int main(void)
 {
     test_input();
@@ -613,6 +635,7 @@ int main(void)
     test_password_change();
     test_prompt_drain();
     test_switched_takeover();
+    test_switched_activity();
     puts("comm regressions passed");
     return 0;
 }

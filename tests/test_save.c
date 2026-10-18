@@ -433,6 +433,18 @@ static void test_game_saves(void)
     assert(!save_char_obj_checked(&ch));
     save_char_obj_backup(&ch);
     assert(access("../backup/Fixture", F_OK) < 0);
+    int sessions[] = {CON_AEDITOR,CON_REDITOR,CON_OEDITOR,CON_MEDITOR,
+        CON_NOTE_TO,CON_NOTE_SUBJECT,CON_NOTE_EXPIRE,CON_NOTE_TEXT,CON_NOTE_FINISH};
+    for (size_t i = 0; i < sizeof(sessions)/sizeof(sessions[0]); ++i) {
+        desc.connected = sessions[i];
+        assert(save_char_obj_checked(&ch));
+        save_char_obj_backup(&ch);
+        assert(desc.connected == sessions[i]);
+        expect_fixture("../player/Fixture",expected);
+        expect_fixture("../backup/Fixture",expected);
+        assert(unlink("../player/Fixture") == 0 &&
+               unlink("../backup/Fixture") == 0);
+    }
     desc.connected = CON_PLAYING;
     switched = ch;
     desc.original = &ch;

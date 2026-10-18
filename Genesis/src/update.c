@@ -781,7 +781,7 @@ if (ch->spec_fun != 0)
 	 * Find dude with oldest save time.
 	 */
 	if (!IS_NPC(ch) && IS_AWA(ch) && ch->save_time < save_time
-	 && ch->desc != NULL && ch->desc->connected == CON_PLAYING)
+	 && descriptor_is_in_game(ch->desc))
 	{
 	    ch_save	= ch;
 	    save_time	= ch->save_time;

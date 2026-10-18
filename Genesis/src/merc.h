@@ -2014,6 +2014,16 @@ extern  long    gsn_brittle_bones;
 
 #define IN_CLAN( ch )           (IS_NPC(ch)?0:ch->clan)
 #define IS_PLAYING( d )         (d->connected==CON_PLAYING)
+
+/* In-world editors are player sessions, not authentication/login shells. */
+static inline bool descriptor_is_in_game(const DESCRIPTOR_DATA *d)
+{
+    return d != NULL &&
+        (d->connected == CON_PLAYING || d->connected == CON_AEDITOR ||
+         d->connected == CON_REDITOR || d->connected == CON_OEDITOR ||
+         d->connected == CON_MEDITOR ||
+         (d->connected >= CON_NOTE_TO && d->connected <= CON_NOTE_FINISH));
+}
  
 
 #define IS_AWAKE(ch)		(ch->position > POS_SLEEPING)
@@ -3229,6 +3239,8 @@ void	obj_to_obj	args( ( OBJ_DATA *obj, OBJ_DATA *obj_to ) );
 void	obj_from_obj	args( ( OBJ_DATA *obj ) );
 void	extract_obj	args( ( OBJ_DATA *obj ) );
 void	extract_char	args( ( CHAR_DATA *ch, bool fPull ) );
+void restore_player_control(CHAR_DATA *ch);
+void release_character_links(CHAR_DATA *ch, bool retire_familiar);
 CD *	get_char	args( ( CHAR_DATA *ch ) );
 CD *	get_char_room	args( ( CHAR_DATA *ch, char *argument ) );
 CD *	get_char_world	args( ( CHAR_DATA *ch, char *argument ) );
