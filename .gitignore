@@ -26,6 +26,8 @@ tests/test_class_gear
 tests/test_drow_ammo
 tests/test_lifecycle_ownership
 tests/test_autosave_recovery
+tests/test_restart
+tests/restart_engine.o
 tests/stun_engine/
 Genesis/player/
 Genesis/backup/

@@ -30,9 +30,9 @@ int atomic_save_name_valid(const char *name)
     return 1;
 }
 
-enum atomic_save_result atomic_save(const char *directory, const char *name,
+static enum atomic_save_result atomic_save_named(const char *directory, const char *name,
                                     atomic_save_writer writer, void *context,
-                                    struct atomic_save_error *error)
+                                    struct atomic_save_error *error, int valid_name)
 {
     static unsigned long sequence;
     struct atomic_save_error local_error = { NULL, 0, 0 };
@@ -49,7 +49,7 @@ enum atomic_save_result atomic_save(const char *directory, const char *name,
         error = &local_error;
     *error = local_error;
     if (directory == NULL || directory[0] == '\0' ||
-        !atomic_save_name_valid(name) || writer == NULL) {
+        !valid_name || writer == NULL) {
         errno = EINVAL;
         goto failed;
     }
@@ -158,4 +158,17 @@ failed:
         close(dirfd);
     errno = saved_errno;
     return result;
+}
+
+enum atomic_save_result atomic_save(const char *directory, const char *name,
+    atomic_save_writer writer, void *context, struct atomic_save_error *error)
+{
+    return atomic_save_named(directory,name,writer,context,error,
+                             atomic_save_name_valid(name));
+}
+
+enum atomic_save_result atomic_save_copyover(const char *directory,
+    atomic_save_writer writer, void *context, struct atomic_save_error *error)
+{
+    return atomic_save_named(directory,"copyover.data",writer,context,error,1);
 }

@@ -22,6 +22,9 @@ struct atomic_save_error {
 };
 
 typedef int (*atomic_save_writer)(FILE *stream, void *context);
+/* Fixed trusted basename only; does not relax player-name validation. */
+enum atomic_save_result atomic_save_copyover(const char *directory,
+    atomic_save_writer writer, void *context, struct atomic_save_error *error);
 
 /* Name is an ASCII alphabetic player name, 1..255 bytes (not a path). */
 int atomic_save_name_valid(const char *name);

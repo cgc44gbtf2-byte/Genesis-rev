@@ -3098,7 +3098,7 @@ void	mortal_vamp	args( ( CHAR_DATA *ch ) );
 void	bind_char	args( ( CHAR_DATA *ch ) );
 void	logchan		args( ( char *argument ) );
 void	sysmes		args( ( char *argument ) );
-void    copyover_recover args( ( void ) );
+bool copyover_recover(void);
 ROOM_INDEX_DATA *find_location( CHAR_DATA *ch, char *arg );	/* OLC */
 
 /* Signals.c */

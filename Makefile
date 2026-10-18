@@ -11,6 +11,8 @@ ENGINE_OBJECTS = $(patsubst Genesis/src/%.c,tests/stun_engine/%.o,$(ENGINE_SOURC
 LEGACY_CLASS_OBJECTS = $(addprefix tests/stun_engine/,$(notdir $(CLASS_MODULE_SOURCES:.c=.o)))
 
 .PHONY: all test check-layout sanitize clean
+TESTS += tests/test_restart
+
 all:
 	$(MAKE) -C Genesis/src
 
@@ -66,10 +68,17 @@ tests/stun_engine/atomic_save.o: Genesis/src/atomic_save.c $(ENGINE_HEADERS)
 	mkdir -p tests/stun_engine
 	$(CC) $(TEST_CPPFLAGS) -DMERC $(CFLAGS) $(TEST_FLAGS) -DATOMIC_SAVE_TESTING -c $< -o $@
 
+tests/test_restart: tests/test_restart.c $(filter-out tests/stun_engine/restart.o,$(ENGINE_OBJECTS)) tests/restart_engine.o
+	$(CC) $(TEST_CPPFLAGS) $(CFLAGS) $(TEST_FLAGS) $< $(filter-out tests/stun_engine/restart.o,$(ENGINE_OBJECTS)) tests/restart_engine.o $(LDFLAGS) $(TEST_LDFLAGS) $(LDLIBS) -o $@
+
+tests/restart_engine.o: Genesis/src/restart.c $(ENGINE_HEADERS)
+	$(CC) $(TEST_CPPFLAGS) -DMERC -DRESTART_TESTING -DATOMIC_SAVE_TESTING $(CFLAGS) $(TEST_FLAGS) -c $< -o $@
+
 sanitize:
 	$(MAKE) clean
 	$(MAKE) test CFLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" LDFLAGS="-fsanitize=address,undefined"
 
 clean:
+	rm -f tests/restart_engine.o
 	$(MAKE) -C Genesis/src clean
 	rm -f $(TESTS) tests/buffers_interp.o $(ENGINE_OBJECTS) $(LEGACY_CLASS_OBJECTS) tests/stun_comm.o tests/restored_fight.o

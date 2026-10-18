@@ -58,6 +58,7 @@
 #include <crypt.h>
 
 #include "merc.h"
+#include "restart.h"
 
 
 /*
@@ -430,27 +431,10 @@ int main( int argc, char **argv )
     /*
      * Get the port number.
      */
-    port = 4000;
-    if ( argc > 1 )
-    {
-	if ( !is_number( argv[1] ) )
-	{
-	    fprintf( stderr, "Usage: %s [port #]\n", argv[0] );
-	    exit( 1 );
-	}
-	else if ( ( port = atoi( argv[1] ) ) <= 1024 )
-	{
-	    fprintf( stderr, "Port number must be above 1024.\n" );
-	    exit( 1 );
-	}
-        /* Are we recovering from a copyover? */
-        if (argv[2] && argv[2][0])
-        {
-                fCopyOver = TRUE;
-                control = atoi(argv[3]);
-        }
-        else
-                fCopyOver = FALSE;
+    if (!restart_arguments(argc,argv,&port,&control,&fCopyOver) ||
+        (fCopyOver && !restart_listener_valid(control,port))) {
+        fprintf(stderr,"Usage: %s [port 1025..65535] [copyover inherited-listener]\n",argv[0]);
+        return EXIT_FAILURE;
     }
 
     /*
@@ -468,8 +452,11 @@ int main( int argc, char **argv )
     boot_db( );
     sprintf( log_buf, "GW: Genesis is ready to rock on port %d.", port );
     log_string( log_buf );
-    if (fCopyOver)
-        copyover_recover();
+    if (fCopyOver && !copyover_recover()) {
+        log_string("Copyover recovery refused invalid or unreadable handoff; exiting.");
+        close(control);
+        return EXIT_FAILURE;
+    }
     game_loop_unix( control );
     close( control );
 #endif
@@ -935,6 +922,7 @@ record_descriptor_activity(d);
 	            }
 		}
 		d->incomm[0]	= '\0';
+            if (merc_down) break;
 	    }
 	}
 
@@ -942,6 +930,7 @@ record_descriptor_activity(d);
 	/*
 	 * Autonomous game motion.
 	 */
+if (merc_down) break; /* Do not mutate world state after the final checkpoint. */
 	update_handler( );
 
 

@@ -31,6 +31,8 @@ jobs:
           make test
           python3 tests/test_catalog.py
       - name: Isolated boot and graceful stop
-        run: python3 tests/smoke_shutdown.py
+        run: |
+          python3 tests/smoke_shutdown.py
+          python3 tests/smoke_copyover.py
       - name: Address and undefined-behavior sanitizers
         run: make sanitize

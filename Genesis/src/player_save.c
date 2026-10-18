@@ -17,6 +17,38 @@ CHAR_DATA *player_save_owner(CHAR_DATA *ch)
     return ch;
 }
 
+/* Manual restarts can wait; unlike TERM they must not discard unsaved state.
+ * Prevalidate everything before any player checkpoint or world teardown. */
+bool player_restart_checkpoint(void)
+{
+    for (AREA_DATA *a=area_first; a!=NULL; a=a->next)
+        /* ADDED is a persistent informational flag, not an unsaved marker. */
+        if (IS_SET(a->area_flags,AREA_CHANGED)) return FALSE;
+    for (DESCRIPTOR_DATA *d=descriptor_list; d!=NULL; d=d->next)
+        if (descriptor_is_in_game(d) &&
+            (d->connected!=CON_PLAYING || d->pString!=NULL || d->pEdit!=NULL ||
+             player_save_owner(d->original ? d->original : d->character)==NULL))
+            return FALSE;
+    for (DESCRIPTOR_DATA *d=descriptor_list; d!=NULL; d=d->next) {
+        if (!descriptor_is_in_game(d)) continue;
+        CHAR_DATA *owner=d->original ? d->original : d->character;
+        bool loaded=FALSE;
+        for (CHAR_DATA *ch=char_list; ch!=NULL; ch=ch->next)
+            if (ch==owner) { loaded=TRUE; break; }
+        if (!loaded) return FALSE;
+    }
+    for (CHAR_DATA *ch=char_list; ch!=NULL; ch=ch->next)
+        if (!IS_NPC(ch) &&
+            (player_save_owner(ch)!=ch || ch->in_room==NULL ||
+             ch->pcdata->in_progress!=NULL)) return FALSE;
+    bool okay=TRUE;
+    for (CHAR_DATA *ch=char_list; ch!=NULL; ch=ch->next)
+        if (!IS_NPC(ch) &&
+            !(player_save_state(ch,PLAYER_SAVE_ALL)&PLAYER_SAVE_PRIMARY))
+            okay=FALSE;
+    return okay;
+}
+
 static DESCRIPTOR_DATA *save_descriptor(CHAR_DATA *ch)
 {
     if (descriptor_is_in_game(ch->desc)) return ch->desc;

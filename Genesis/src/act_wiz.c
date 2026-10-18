@@ -33,6 +33,7 @@
 #include <time.h>
 #include <unistd.h> /* unlink() */
 #include "merc.h"
+#include "restart.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -46,32 +47,9 @@
  * Local functions.
  */
 void			call_all	args( ( CHAR_DATA *ch ) );
-#define DD DESCRIPTOR_DATA
-DD      *copyover_descriptor    args( (void) );
 bool    write_to_descriptor     args( ( long desc, char *txt, long length ) );
 extern bool newbielock;
 extern bool wizlock;
-
-DESCRIPTOR_DATA *copyover_descriptor(void)
-{
-    static DESCRIPTOR_DATA d_zero;
-    DESCRIPTOR_DATA *d;
-
-    if (descriptor_free == NULL)
-        d = alloc_perm(sizeof(*d));
-    else    {
-        d = descriptor_free;
-        descriptor_free = descriptor_free->next;
-    }
-
-    *d = d_zero;
-
-    d->connected        = CON_GET_NAME;
-    d->outsize          = 2000;
-    d->outbuf           = alloc_mem( d->outsize );
-
-    return d;
-}
 
 
 void do_tick( CHAR_DATA *ch, char *argument )
@@ -1374,12 +1352,15 @@ void do_shutdown( CHAR_DATA *ch, char *argument )
     char buf[MAX_STRING_LENGTH];
     extern bool merc_down;
 
+    if (ch==NULL) return;
+    if (!player_restart_checkpoint()) {
+        stc("Shutdown cancelled. Resolve failed primary saves, ineligible players, drafts/editors and unsaved areas first.\n\r",ch);
+        return;
+    }
     sprintf(buf, "Shutdown by %s.", ch->name);
     append_file(ch, SHUTDOWN_FILE, buf);
     strcat(buf, "\n\r");
     do_echo(ch, buf);
-    do_forceauto(ch, "save");
-    do_autosave(ch, "");
     merc_down = TRUE;
     return;
 }
@@ -4376,152 +4357,9 @@ void do_release( CHAR_DATA *ch, char *argument )
 }
 
 
-#define CH(descriptor)  ((descriptor)->original ? \
-(descriptor)->original : (descriptor)->character)
-
-#define COPYOVER_FILE "copyover.data"
-#define EXE_FILE          "../src/merc"
-
 void do_copyover (CHAR_DATA *ch, char * argument)
 {
-        FILE *fp;
-        DESCRIPTOR_DATA *d, *d_next;
-        char buf [100], buf2[100];
-	extern long port,control; /* db.c */
-
-        fp = fopen (COPYOVER_FILE, "w");
-
-        if (!fp)
-        {
-                send_to_char ("Copyover file not writeable, aborted.\n\r",ch);
-                mud_logf ("Could not write to copyover file: %s", COPYOVER_FILE);
-                perror ("do_copyover:fopen");
-                return;
-        }
-
-        /* Consider changing all saved areas here, if you use OLC */
-
-        /* do_asave (NULL, ""); - autosave changed areas */
-	do_force(ch, "all call all");
-	do_force(ch, "all save");
-
-        sprintf (buf, "\n\r *** COPYOVER by %s - please remain seated!\n\r", ch->name);
-
-        /* For each playing descriptor, save its state */
-        for (d = descriptor_list; d ; d = d_next)
-        {
-                CHAR_DATA * och = CH (d);
-                d_next = d->next; /* We delete from the list , so need to save this */
-
-                if (!d->character || d->connected > CON_PLAYING) /* drop those logging on */
-                {
-                        write_to_descriptor (d->descriptor, "\n\rSorry, we are rebooting. Come back in a few minutes.\n\r", 0);
-                        close_socket (d); /* throw'em out */
-                }
-                else
-                {
-                        fprintf (fp, "%li %s %s\n", d->descriptor, och->name, d->host);
-                        save_char_obj (och);
-                        write_to_descriptor (d->descriptor, buf, 0);
-                }
-        }
-
-        fprintf (fp, "-1\n");
-        fclose (fp);
-
-        /* Close reserve and other always-open files and release other resources */
-
-        fclose (fpReserve);
-
-        /* exec - descriptors are inherited */
-
-        sprintf (buf, "%li", port);
-        sprintf (buf2, "%li", control);
-        execl (EXE_FILE, "merc", buf, "copyover", buf2, (char *) NULL);
-
-        /* Failed - sucessful exec will not return */
-
-        perror ("do_copyover: execl");
-        send_to_char ("Copyover FAILED!\n\r",ch);
-
-        /* Here you might want to reopen fpReserve */
-}
-
-/* Recover from a copyover - load players */
-void copyover_recover ()
-{
-        DESCRIPTOR_DATA *d;
-        FILE *fp;
-        char name [100];
-        char host[MAX_STRING_LENGTH];
-        long desc;
-        bool fOld;
-
-        mud_logf ("Copyover recovery initiated");
-
-        fp = fopen (COPYOVER_FILE, "r");
-
-        if (!fp) /* there are some descriptors open which will hang forever then ? */
-        {
-                perror ("copyover_recover:fopen");
-                mud_logf ("Copyover file not found. Exitting.\n\r");
-                exit (1);
-        }
-
-        unlink (COPYOVER_FILE); /* In case something crashes - doesn't prevent reading  */
-
-        for (;;)
-        {
-                fscanf (fp, "%li %s %s\n", &desc, name, host);
-                if (desc == -1)
-                        break;
-
-                /* Write something, and check if it goes error-free */
-                if (!write_to_descriptor (desc, "\n\rRestoring from copyover...\n\r",0))
-                {
-                        close (desc); /* nope */
-                        continue;
-                }
-
-                d = copyover_descriptor();
-                d->descriptor = desc;
-
-                d->host = str_dup (host);
-                d->next = descriptor_list;
-                descriptor_list = d;
-                d->connected = CON_COPYOVER_RECOVER; /* -15, so close_socket frees the char */
-
-
-                /* Now, find the pfile */
-
-                fOld = load_char_obj (d, name);
-
-                if (!fOld) /* Player file not found?! */
-                {
-                        write_to_descriptor (desc, "\n\rSomehow, your character was lost in the copyover. Sorry.\n\r", 0);
-                        close_socket (d);
-                }
-                else /* ok! */
-                {
-                        write_to_descriptor (desc, "\n\rCopyover recovery complete.\n\r",0);
-
-                        /* Just In Case */
-                        if (!d->character->in_room)
-                                d->character->in_room = get_room_index (ROOM_VNUM_TEMPLE);
-
-                        /* Insert in the char_list */
-                        d->character->next = char_list;
-                        char_list = d->character;
-
-                        char_to_room (d->character, d->character->in_room);
-                        do_look (d->character, "");
-                        act ("$n materializes!", d->character, NULL, NULL, TO_ROOM);
-                        d->connected = CON_PLAYING;
-                }
-
-        }
-
-        fclose (fp);
+    restart_copyover(ch);
 }
 
 void do_generation( CHAR_DATA *ch, char *argument )
