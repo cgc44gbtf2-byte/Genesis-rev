@@ -225,7 +225,7 @@ void do_shadowforge( CHAR_DATA *ch, char *argument )
 {
     OBJ_INDEX_DATA *pObjIndex;
     OBJ_DATA *obj;
-    long vnum = 29639;
+    long vnum = OBJ_VNUM_SHADOW_WEAPON;
     long wt;
 
     if (!IS_VAMPIRE(ch))
@@ -254,7 +254,8 @@ void do_shadowforge( CHAR_DATA *ch, char *argument )
 	return;
     }
 
-    if ((pObjIndex = get_obj_index(vnum)) == NULL)
+    if ((pObjIndex = get_obj_index(vnum)) == NULL ||
+        pObjIndex->item_type != ITEM_WEAPON)
     {
 	stc("Missing object, please inform the staff.\n\r", ch);
 	return;
@@ -279,6 +280,8 @@ void do_shadowforge( CHAR_DATA *ch, char *argument )
     }
     obj->value[3] = wt;
     obj->timer = 2700;
+    obj->cost = 0;
+    obj->points = 0;
     SET_BIT(obj->quest, QUEST_AGGRAVATED);
     obj_to_char(obj, ch);
     ch->blood[BLOOD_CURRENT] -= 50;

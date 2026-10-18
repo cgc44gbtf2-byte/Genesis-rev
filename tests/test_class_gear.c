@@ -1,5 +1,6 @@
 /* Full-engine class crafting, cost, equipment and persistence regressions. */
 #include <assert.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,13 +13,18 @@ extern char *string_space, *top_string;
 extern bool fBootDb;
 extern void init_mm(void);
 extern OBJ_DATA *obj_free;
+extern char *target_name;
+extern long get_cost(CHAR_DATA *, OBJ_DATA *, bool);
 static CHAR_DATA actor;
 static PC_DATA pc;
 static DESCRIPTOR_DATA descriptor;
 static ROOM_INDEX_DATA room;
 static AREA_DATA area;
 static char output[65536];
-static OBJ_INDEX_DATA indices[40];
+static OBJ_INDEX_DATA indices[80];
+static CHAR_DATA shopkeeper;
+static MOB_INDEX_DATA shop_index;
+static SHOP_DATA shop;
 static int index_count;
 static const struct craft {
     DO_FUN *fn;
@@ -215,6 +221,222 @@ static void sorcerer(void)
     assert(n == 2); /* Existing zero-cost, once-only +5/+5 enchant preserved. */
 }
 
+static void market(long type)
+{
+    while (shopkeeper.carrying) extract_obj(shopkeeper.carrying);
+    memset(&shopkeeper, 0, sizeof(shopkeeper));
+    memset(&shop_index, 0, sizeof(shop_index)); memset(&shop, 0, sizeof(shop));
+    shopkeeper.name = "Keeper"; shopkeeper.short_descr = "a keeper";
+    shopkeeper.act = ACT_IS_NPC; shopkeeper.position = POS_STANDING;
+    shopkeeper.pIndexData = &shop_index; shop_index.pShop = &shop;
+    shopkeeper.in_room = &room; shopkeeper.next_in_room = &actor;
+    shopkeeper.level = 1; shopkeeper.hit = shopkeeper.max_hit = 100;
+    room.people = &shopkeeper;
+    shop.buy_type[0] = type; shop.profit_buy = 120; shop.profit_sell = 50;
+    shop.close_hour = 23; time_info.hour = 12;
+}
+
+static void consumable_market(void)
+{
+    const char *words[] = {"book", "pen", "page"};
+    const long types[] = {ITEM_BOOK, ITEM_PEN, ITEM_PAGE};
+    index_for(OBJ_VNUM_PROTOPLASM, ITEM_TRASH);
+    for (int i = 0; i < 3; ++i) {
+        fixture(CLASS_SORCERER); actor.primal = i < 2 ? 10 : 0;
+        market(types[i]); invoke(do_sorccreate, words[i]);
+        OBJ_DATA *obj = actor.carrying;
+        assert(obj && obj->cost == 0 && obj->points == 0 && actor.primal == 0);
+        obj->cost = 100000; /* Simulate an older saved magical supply. */
+        assert(get_cost(&shopkeeper,obj,FALSE) == 0 &&
+               get_cost(&shopkeeper,obj,TRUE) == 0);
+        obj->cost = 0;
+        assert(save_char_obj_checked(&actor));
+        DESCRIPTOR_DATA loaded = {0};
+        assert(load_char_obj(&loaded,"Gearhero"));
+        assert(loaded.character->carrying->cost == 0 &&
+               loaded.character->carrying->points == 0);
+        while (loaded.character->carrying) extract_obj(loaded.character->carrying);
+        free_char(loaded.character);
+        obj_from_char(obj); obj_to_room(obj,&room); pc.quest = 7;
+        invoke(do_sacrifice,words[i]);
+        assert(pc.quest == 7 && !room.contents && !actor.carrying);
+    }
+    index_for(OBJ_VNUM_SHADOW_WEAPON, ITEM_WEAPON);
+    const char *styles[] = {"slash", "pierce", "blunt"};
+    for (int i = 0; i < 3; ++i) {
+        fixture(CLASS_VAMPIRE); market(ITEM_WEAPON);
+        actor.blood[BLOOD_CURRENT] = 50; invoke(do_shadowforge,styles[i]);
+        OBJ_DATA *obj = actor.carrying;
+        assert(obj && obj->timer == 2700 && obj->cost == 0 &&
+               obj->points == 0 && actor.blood[BLOOD_CURRENT] == 0);
+        obj->cost = 100000;
+        assert(get_cost(&shopkeeper,obj,FALSE) == 0 &&
+               get_cost(&shopkeeper,obj,TRUE) == 0);
+        long gold = actor.gold; invoke(do_sell,"shadowforge");
+        assert(actor.carrying == obj && actor.gold == gold && obj->timer == 2700);
+    }
+    fixture(CLASS_VAMPIRE); market(ITEM_ARMOR);
+    OBJ_DATA *obj = create_object(index_for(73110,ITEM_ARMOR),0);
+    obj->cost = 100; SET_BIT(obj->extra_flags,ITEM_VANISH); obj_to_char(obj,&actor);
+    assert(get_cost(&shopkeeper,obj,FALSE) == 0 &&
+           get_cost(&shopkeeper,obj,TRUE) == 0);
+    REMOVE_BIT(obj->extra_flags,ITEM_VANISH); obj->chobj = &actor;
+    assert(get_cost(&shopkeeper,obj,FALSE) == 0); obj->chobj = NULL;
+    assert(get_cost(&shopkeeper,obj,FALSE) == 50); /* Ordinary stock unchanged. */
+    obj->cost = LONG_MAX; assert(get_cost(&shopkeeper,obj,FALSE) == 0);
+    obj->cost = -1; assert(get_cost(&shopkeeper,obj,TRUE) == 0);
+    obj->cost = 100; shop.profit_sell = -1;
+    assert(get_cost(&shopkeeper,obj,FALSE) == 0);
+    shop.profit_sell = LONG_MAX;
+    assert(get_cost(&shopkeeper,obj,FALSE) == 0);
+    fixture(CLASS_NONE); market(ITEM_STAFF);
+    obj = create_object(index_for(73111,ITEM_STAFF),0); obj->cost = 100;
+    obj->value[1] = obj->value[2] = 0;
+    obj_to_char(obj,&actor);
+    assert(get_cost(&shopkeeper,obj,FALSE) == 0); /* No division by zero. */
+    obj->value[1] = 10; obj->value[2] = 11;
+    assert(get_cost(&shopkeeper,obj,FALSE) == 0);
+    obj->value[2] = -1; assert(get_cost(&shopkeeper,obj,FALSE) == 0);
+    obj->value[2] = 5;
+    assert(get_cost(&shopkeeper,obj,FALSE) == 25 &&
+           get_cost(&shopkeeper,obj,TRUE) == 60);
+    obj->value[1] = obj->value[2] = LONG_MAX;
+    assert(get_cost(&shopkeeper,obj,FALSE) == 0);
+}
+
+static void market_sales(void)
+{
+    fixture(CLASS_NONE); market(ITEM_ARMOR);
+    OBJ_DATA *obj = create_object(index_for(73112,ITEM_ARMOR),0);
+    obj->cost = 100; obj->timer = 17;
+    free_string(obj->questowner); obj->questowner = str_dup("AnOwner");
+    obj_to_char(obj,&actor); actor.gold = LONG_MAX;
+    invoke(do_sell,"gear");
+    assert(actor.carrying == obj && actor.gold == LONG_MAX && obj->timer == 17 &&
+           !str_cmp(obj->questowner,"AnOwner"));
+    actor.gold = 10; shopkeeper.gold = LONG_MIN;
+    invoke(do_sell,"gear");
+    assert(!actor.carrying && shopkeeper.carrying == obj &&
+           actor.gold == 60 && shopkeeper.gold == 0);
+    assert(obj->timer == 17 && obj->questowner && obj->questowner[0] == '\0');
+    actor.gold = 1000; shopkeeper.gold = LONG_MAX;
+    invoke(do_buy,"gear");
+    assert(actor.gold == 1000 && shopkeeper.gold == LONG_MAX &&
+           shopkeeper.carrying == obj && !actor.carrying);
+    shopkeeper.gold = 0; invoke(do_buy,"gear");
+    assert(actor.carrying == obj && actor.gold == 880 && shopkeeper.gold == 120 &&
+           obj->timer == 17 && !obj->questowner[0]);
+    fixture(CLASS_NONE); /* Also catches a dangling owner's double free. */
+}
+
+static void conjured_supplies(void)
+{
+    SPELL_FUN *spells[] = {spell_continual_light,spell_create_food,
+                          spell_create_spring,spell_soulblade};
+    long vnums[] = {OBJ_VNUM_LIGHT_BALL,OBJ_VNUM_MUSHROOM,
+                   OBJ_VNUM_SPRING,OBJ_VNUM_SOULBLADE};
+    long types[] = {ITEM_LIGHT,ITEM_FOOD,ITEM_FOUNTAIN,ITEM_WEAPON};
+    for (int i = 0; i < 4; ++i) {
+        pid_t pid = fork(); assert(pid >= 0);
+        if (!pid) {
+            fixture(CLASS_NONE);
+            char slash[] = "slash"; target_name = slash;
+            spells[i](0,10,&actor,NULL);
+            assert(!actor.carrying && !room.contents); _exit(0);
+        }
+        int status; assert(waitpid(pid,&status,0) == pid &&
+                          WIFEXITED(status) && WEXITSTATUS(status) == 0);
+        index_for(vnums[i],types[i]); fixture(CLASS_NONE); market(types[i]);
+        char slash[] = "slash"; target_name = slash;
+        OBJ_INDEX_DATA *prototype = get_obj_index(vnums[i]);
+        prototype->item_type = ITEM_TRASH;
+        spells[i](0,10,&actor,NULL);
+        assert(!actor.carrying && !room.contents);
+        prototype->item_type = types[i]; target_name = slash;
+        spells[i](0,10,&actor,NULL);
+        OBJ_DATA *obj = i == 3 ? actor.carrying : room.contents;
+        assert(obj && obj->cost == 0 && obj->points == 0 &&
+               get_cost(&shopkeeper,obj,FALSE) == 0);
+        if (i == 1) assert(obj->value[0] == 15);
+        if (i == 2) assert(obj->timer == 20);
+        if (i < 3) {
+            fixture(CLASS_NONE); actor.in_room = NULL;
+            spells[i](0,10,&actor,NULL); assert(!room.contents);
+            actor.in_room = &room;
+        }
+    }
+    fixture(CLASS_NONE);
+    spell_create_food(0,LONG_MAX,&actor,NULL);
+    assert(room.contents->value[0] == 1005);
+    fixture(CLASS_NONE);
+    spell_create_spring(0,LONG_MAX,&actor,NULL);
+    assert(room.contents->timer == 2000);
+    fixture(CLASS_WEREWOLF); pc.tribes[TRIBE_FIANNA] = 1;
+    OBJ_INDEX_DATA *light = get_obj_index(OBJ_VNUM_LIGHT_BALL);
+    OBJ_INDEX_DATA **link = &obj_index_hash[light->vnum % MAX_KEY_HASH];
+    while (*link != light) link = &(*link)->next;
+    *link = light->next;
+    invoke(do_faerielight,""); assert(!room.contents);
+    *link = light;
+    actor.in_room = NULL; invoke(do_faerielight,""); assert(!room.contents);
+    actor.in_room = &room;
+    invoke(do_faerielight,"");
+    assert(room.contents && room.contents->cost == 0 && room.contents->points == 0);
+    fixture(CLASS_WEREWOLF); pc.tribes[TRIBE_FIANNA] = 0;
+    invoke(do_faerielight,""); assert(!room.contents);
+    fixture(CLASS_NONE);
+}
+
+static void fetish_crafting(void)
+{
+    fixture(CLASS_WEREWOLF); pc.tribes[TRIBE_UKTENA] = 5;
+    CHAR_DATA friend = {0}; PC_DATA otherpc = {0};
+    friend.name = "Partfriend"; friend.pcdata = &otherpc;
+    friend.level = LEV_AWA; friend.in_room = &room;
+    actor.next = &friend;
+    OBJ_DATA *part = create_object(index_for(73113,ITEM_TREASURE),0);
+    free_string(part->name); part->name = str_dup("head Partfriend");
+    part->value[2] = 12; obj_to_char(part,&actor); equip_char(&actor,part,WEAR_HOLD);
+    invoke(do_fetishdoll,"Partfriend");
+    assert(actor.carrying == part && get_eq_char(&actor,WEAR_HOLD) == part);
+    index_for(OBJ_VNUM_VOODOO_DOLL,ITEM_VOODOO);
+    get_obj_index(OBJ_VNUM_VOODOO_DOLL)->item_type = ITEM_TRASH;
+    invoke(do_fetishdoll,"Partfriend");
+    assert(actor.carrying == part && get_obj_index(73113)->count == 1);
+    get_obj_index(OBJ_VNUM_VOODOO_DOLL)->item_type = ITEM_VOODOO;
+    part->chobj = &friend; invoke(do_fetishdoll,"Partfriend");
+    assert(actor.carrying == part && get_obj_index(73113)->count == 1);
+    part->chobj = NULL;
+    SET_BIT(part->quest,QUEST_ARTIFACT); invoke(do_fetishdoll,"Partfriend");
+    assert(actor.carrying == part && get_obj_index(73113)->count == 1);
+    REMOVE_BIT(part->quest,QUEST_ARTIFACT);
+    part->chobj = &friend; otherpc.chobj = part;
+    SET_BIT(friend.more,MORE_HEAD); SET_BIT(friend.affected_by,AFF_POLYMORPH);
+    friend.morph = str_dup("a severed head");
+    assert(get_room_index(ROOM_VNUM_ALTAR) == NULL);
+    invoke(do_fetishdoll,"Partfriend"); /* Missing recovery room: no consumed head. */
+    assert(actor.carrying == part && get_obj_index(73113)->count == 1);
+    ROOM_INDEX_DATA altar = {0};
+    altar.vnum = ROOM_VNUM_ALTAR; altar.area = &area;
+    altar.name = "An altar"; altar.description = "";
+    long hash = altar.vnum % MAX_KEY_HASH;
+    altar.next = room_index_hash[hash]; room_index_hash[hash] = &altar;
+    friend.in_room = NULL; char_to_room(&friend,&room);
+    invoke(do_fetishdoll,"Partfriend");
+    OBJ_DATA *doll = get_eq_char(&actor,WEAR_HOLD);
+    if (!doll || doll->pIndexData->vnum != OBJ_VNUM_VOODOO_DOLL)
+        fprintf(stderr,"Fetish result: %s\n",output);
+    assert(doll && doll->pIndexData->vnum == OBJ_VNUM_VOODOO_DOLL &&
+           doll->cost == 0 && doll->points == 0 && actor.carry_number == 1 &&
+           get_obj_index(73113)->count == 0);
+    assert(friend.in_room == &altar && friend.hit == 1 &&
+           !IS_MORE(&friend,MORE_HEAD) && !otherpc.chobj);
+    char_from_room(&friend);
+    room_index_hash[hash] = altar.next;
+    free_string(friend.morph);
+    fixture(CLASS_NONE);
+}
+
 static void forge(void)
 {
     fixture(CLASS_HIGHLANDER);
@@ -405,10 +627,14 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[1],"sorcerer")) missing_sorcerer();
         else if (!strcmp(argv[1],"mage")) mage_costs();
         else if (!strcmp(argv[1],"equipment")) equipment();
+        else if (!strcmp(argv[1],"market")) consumable_market();
+        else if (!strcmp(argv[1],"sales")) market_sales();
+        else if (!strcmp(argv[1],"conjured")) conjured_supplies();
         else abort();
     } else {
         missing_sorcerer(); craft_boundaries(); sorcerer(); forge();
         mage_costs(); equipment(); class_restrictions(); dragon_persistence();
+        consumable_market(); market_sales(); conjured_supplies(); fetish_crafting();
     }
     fixture(CLASS_NONE);
     clan_registry_close();
@@ -418,7 +644,7 @@ int main(int argc, char **argv)
     assert(chdir("..") == 0 && rmdir("area") == 0 &&
            rmdir("player") == 0 && rmdir("backup") == 0);
     assert(chdir(original) == 0 && rmdir(root) == 0);
-    puts("class gear: crafting/cost boundaries, enchantment, reforging, restrictions, "
-         "overlapping equipment effects and Dragon persistence passed");
+    puts("class gear: crafting/cost boundaries, consumables, market overflow/lifetimes, "
+         "enchantment, reforging, restrictions, effects and persistence passed");
     return 0;
 }

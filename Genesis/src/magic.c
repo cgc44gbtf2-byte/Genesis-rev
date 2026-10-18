@@ -857,8 +857,16 @@ void spell_colour_spray( long sn, long level, CHAR_DATA *ch, void *vo )
 void spell_continual_light( long sn, long level, CHAR_DATA *ch, void *vo )
 {
     OBJ_DATA *light;
+    OBJ_INDEX_DATA *prototype = get_obj_index(OBJ_VNUM_LIGHT_BALL);
+    if (prototype == NULL || prototype->item_type != ITEM_LIGHT ||
+        ch->in_room == NULL) {
+        stc("The light template is unavailable here; please tell staff.\n\r", ch);
+        return;
+    }
 
-    light = create_object(get_obj_index( OBJ_VNUM_LIGHT_BALL), 0);
+    light = create_object(prototype, 0);
+    light->cost = 0;
+    light->points = 0;
     obj_to_room(light, ch->in_room);
     act("$n twiddles $s thumbs and $p appears.",   ch, light, NULL, TO_ROOM);
     act("You twiddle your thumbs and $p appears.", ch, light, NULL, TO_CHAR);
@@ -888,9 +896,17 @@ void spell_control_weather( long sn, long level, CHAR_DATA *ch, void *vo )
 void spell_create_food( long sn, long level, CHAR_DATA *ch, void *vo )
 {
     OBJ_DATA *mushroom;
+    OBJ_INDEX_DATA *prototype = get_obj_index(OBJ_VNUM_MUSHROOM);
+    if (prototype == NULL || prototype->item_type != ITEM_FOOD ||
+        ch->in_room == NULL) {
+        stc("The food template is unavailable here; please tell staff.\n\r", ch);
+        return;
+    }
 
-    mushroom = create_object(get_obj_index( OBJ_VNUM_MUSHROOM ), 0);
-    mushroom->value[0] = 5 + level;
+    mushroom = create_object(prototype, 0);
+    mushroom->cost = 0;
+    mushroom->points = 0;
+    mushroom->value[0] = 5 + URANGE(0, level, 1000);
     obj_to_room( mushroom, ch->in_room);
 
     act("$p suddenly appears.", ch, mushroom, NULL, TO_ROOM);
@@ -903,9 +919,17 @@ void spell_create_food( long sn, long level, CHAR_DATA *ch, void *vo )
 void spell_create_spring( long sn, long level, CHAR_DATA *ch, void *vo )
 {
     OBJ_DATA *spring;
+    OBJ_INDEX_DATA *prototype = get_obj_index(OBJ_VNUM_SPRING);
+    if (prototype == NULL || prototype->item_type != ITEM_FOUNTAIN ||
+        ch->in_room == NULL) {
+        stc("The spring template is unavailable here; please tell staff.\n\r", ch);
+        return;
+    }
 
-    spring = create_object(get_obj_index(OBJ_VNUM_SPRING), 0);
-    spring->timer = level * 2;
+    spring = create_object(prototype, 0);
+    spring->cost = 0;
+    spring->points = 0;
+    spring->timer = 2 * URANGE(1, level, 1000);
     obj_to_room(spring, ch->in_room);
 
     act( "$p flows from the ground.", ch, spring, NULL, TO_ROOM );
@@ -2482,6 +2506,7 @@ void spell_guardian( long sn, long level, CHAR_DATA *ch, void *vo )
 void spell_soulblade( long sn, long level, CHAR_DATA *ch, void *vo )
 {
     OBJ_DATA  *obj = (OBJ_DATA *) vo;
+    OBJ_INDEX_DATA *prototype;
     char buf [MAX_STRING_LENGTH];
     char arg [MAX_INPUT_LENGTH];
     char wpnname [MAX_INPUT_LENGTH];
@@ -2500,7 +2525,14 @@ void spell_soulblade( long sn, long level, CHAR_DATA *ch, void *vo )
 	return;
     }
 
-    obj = create_object(get_obj_index(OBJ_VNUM_SOULBLADE), 0);
+    prototype = get_obj_index(OBJ_VNUM_SOULBLADE);
+    if (prototype == NULL || prototype->item_type != ITEM_WEAPON) {
+        stc("The soulblade template is unavailable; please tell staff.\n\r", ch);
+        return;
+    }
+    obj = create_object(prototype, 0);
+    obj->cost = 0;
+    obj->points = 0;
 
     free_string(obj->name);
     sprintf(buf,"%s soul %s",ch->name,wpnname);

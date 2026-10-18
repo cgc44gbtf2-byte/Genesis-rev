@@ -84,6 +84,8 @@ void do_mirrorimage( CHAR_DATA *ch, char *argument )
 		if (( obj2 = create_object( obj->pIndexData, 0 )) != NULL )
 		{
 		    SET_BIT(obj2->extra_flags, ITEM_VANISH);
+    obj2->cost = 0;
+    obj2->points = 0;
 		    obj_to_char(obj2, victim);
 		    wear_obj( victim, obj2, obj->wear_loc );
 		}

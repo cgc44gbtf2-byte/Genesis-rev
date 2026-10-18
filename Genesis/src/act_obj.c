@@ -28,6 +28,7 @@
 #include <sys/types.h>
 #endif
 #include <stdio.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -1526,8 +1527,20 @@ long get_cost( CHAR_DATA *keeper, OBJ_DATA *obj, bool fBuy )
     SHOP_DATA *pShop;
     long cost;
 
-    if ( obj == NULL || ( pShop = keeper->pIndexData->pShop ) == NULL )
+    if (keeper == NULL || keeper->pIndexData == NULL || obj == NULL ||
+        obj->pIndexData == NULL || obj->cost <= 0 || obj->chobj != NULL ||
+        IS_SET(obj->extra_flags, ITEM_VANISH) ||
+        (pShop = keeper->pIndexData->pShop) == NULL)
 	return 0;
+
+    /* These dedicated templates identify old saved conjurations as well as
+     * new ones. Ordinary world stock keeps its existing prices. */
+    if (obj->pIndexData->vnum == OBJ_VNUM_SHADOW_WEAPON ||
+        (obj->pIndexData->vnum == OBJ_VNUM_PROTOPLASM &&
+         (obj->item_type == ITEM_PAGE || obj->item_type == ITEM_BOOK ||
+          obj->item_type == ITEM_PEN))) return 0;
+    long profit = fBuy ? pShop->profit_buy : pShop->profit_sell;
+    if (profit <= 0 || obj->cost > LONG_MAX / profit) return 0;
 
     if ( fBuy )
     {
@@ -1558,8 +1571,12 @@ long get_cost( CHAR_DATA *keeper, OBJ_DATA *obj, bool fBuy )
 	}
     }
 
-    if ( obj->item_type == ITEM_STAFF || obj->item_type == ITEM_WAND )
-	cost = cost * obj->value[2] / obj->value[1];
+    if (obj->item_type == ITEM_STAFF || obj->item_type == ITEM_WAND) {
+        long maximum = obj->value[1], remaining = obj->value[2];
+        if (maximum <= 0 || remaining < 0 || remaining > maximum ||
+            (remaining > 0 && cost > LONG_MAX / remaining)) return 0;
+        cost = cost * remaining / maximum;
+    }
 
     return cost;
 }
@@ -1605,6 +1622,10 @@ void do_buy( CHAR_DATA *ch, char *argument )
 	    return;
 	}
 	
+if (keeper->gold < 0 || keeper->gold > LONG_MAX - cost) {
+    stc("The shop cannot safely accept that payment.\n\r", ch);
+    return;
+}
         act( "$n buys $p.", ch, obj, NULL, TO_ROOM );
 	act( "You buy $p.", ch, obj, NULL, TO_CHAR );
 	ch->gold     -= cost;
@@ -1713,15 +1734,17 @@ void do_sell( CHAR_DATA *ch, char *argument )
     }
 
 
+    if (ch->gold < 0 || ch->gold > LONG_MAX - cost) {
+        stc("You cannot safely carry that much gold.\n\r", ch);
+        return;
+    }
     free_string(obj->questowner);
-    obj->timer = 0;	 
+    obj->questowner = str_dup("");
     act( "$n sells $p.", ch, obj, NULL, TO_ROOM );
     sprintf( buf, "You sell $p for %li gold piece%s.", cost, cost == 1 ? "" : "s" );
     act( buf, ch, obj, NULL, TO_CHAR );
     ch->gold     += cost;
-    keeper->gold -= cost;
-    if ( keeper->gold < 0 )
-	keeper->gold = 0;
+    keeper->gold = keeper->gold > cost ? keeper->gold - cost : 0;
 
     if ( obj->item_type == ITEM_TRASH )
 	extract_obj( obj );

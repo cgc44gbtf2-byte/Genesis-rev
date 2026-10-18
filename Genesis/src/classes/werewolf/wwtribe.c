@@ -455,6 +455,7 @@ void do_halosun( CHAR_DATA *ch, char *argument )
 void do_faerielight( CHAR_DATA *ch, char *argument )
 {
     OBJ_DATA *light;
+    OBJ_INDEX_DATA *prototype;
 
     if (IS_NPC(ch)) return;
 
@@ -470,7 +471,15 @@ void do_faerielight( CHAR_DATA *ch, char *argument )
 	return;
     }
 
-    light = create_object( get_obj_index( OBJ_VNUM_LIGHT_BALL ), 0 );
+    prototype = get_obj_index(OBJ_VNUM_LIGHT_BALL);
+    if (prototype == NULL || prototype->item_type != ITEM_LIGHT ||
+        ch->in_room == NULL) {
+        stc("The light cannot be created here; please tell staff.\n\r", ch);
+        return;
+    }
+    light = create_object(prototype, 0);
+    light->cost = 0;
+    light->points = 0;
     obj_to_room( light, ch->in_room );
     act( "$n summons the POWER OF GAIA to create a ball of light.", ch, NULL, NULL, TO_ROOM );
     stc( "You summon the POWER OF GAIA to create a ball of light.\n\r",ch);
@@ -1566,10 +1575,10 @@ void do_fetishdoll( CHAR_DATA *ch, char *argument )
 {
     CHAR_DATA *victim;
     OBJ_DATA  *obj;
+    OBJ_INDEX_DATA *prototype;
     char       buf [MAX_INPUT_LENGTH];
     char       arg [MAX_INPUT_LENGTH];
     char     part1 [MAX_INPUT_LENGTH];
-    char     part2 [MAX_INPUT_LENGTH];
     long       worn;
 
     one_argument( argument, arg );
@@ -1594,7 +1603,23 @@ void do_fetishdoll( CHAR_DATA *ch, char *argument )
 	return;
     }
 
-    if ( ( victim = get_char_world( ch, arg ) ) == NULL )
+    victim = get_char_world(ch, arg);
+    /* A severed player is intentionally hidden from normal character lookup.
+     * Only the live, reciprocal character represented by our held head may
+     * bypass that lookup; never dereference an arbitrary object pointer. */
+    if (victim == NULL) {
+        OBJ_DATA *held = get_eq_char(ch, WEAR_HOLD);
+        for (CHAR_DATA *candidate = char_list; held != NULL && candidate != NULL;
+             candidate = candidate->next) {
+            if (candidate == held->chobj && !IS_NPC(candidate) &&
+                candidate->pcdata != NULL && candidate->pcdata->chobj == held &&
+                IS_MORE(candidate, MORE_HEAD) && !str_cmp(arg,candidate->name)) {
+                victim = candidate;
+                break;
+            }
+        }
+    }
+    if (victim == NULL)
     {
 	send_to_char( "Nobody by that name is playing.\n\r", ch );
 	return;
@@ -1642,21 +1667,31 @@ void do_fetishdoll( CHAR_DATA *ch, char *argument )
 	return;
     }
 
-    sprintf(part2,obj->name);
-
-    if ( str_cmp(part1,part2) )
+    if ( str_cmp(part1,obj->name) )
     {
 	sprintf(buf,"But you are holding %s, not %s!\n\r",obj->short_descr,victim->name);
 	send_to_char( buf, ch );
 	return;
     }
 
+    prototype = get_obj_index(OBJ_VNUM_VOODOO_DOLL);
+    bool severed_head = obj->chobj == victim && victim->pcdata != NULL &&
+        victim->pcdata->chobj == obj && IS_MORE(victim, MORE_HEAD);
+    if (prototype == NULL || prototype->item_type != ITEM_VOODOO ||
+        (obj->chobj != NULL && !severed_head) ||
+        (severed_head && get_room_index(ROOM_VNUM_ALTAR) == NULL) ||
+        obj->contains != NULL || IS_SET(obj->quest, QUEST_ARTIFACT)) {
+        stc("That body part cannot safely become a doll; please tell staff.\n\r", ch);
+        return;
+    }
     act("$p vanishes from your hand in a puff of smoke.", ch, obj, NULL, TO_CHAR);
     act("$p vanishes from $n's hand in a puff of smoke.", ch, obj, NULL, TO_ROOM);
     obj_from_char(obj);
     extract_obj(obj);
 
-    obj = create_object( get_obj_index( OBJ_VNUM_VOODOO_DOLL ), 0 );
+    obj = create_object(prototype, 0);
+    obj->cost = 0;
+    obj->points = 0;
 
     sprintf(buf,"%s voodoo doll",victim->name);
     free_string(obj->name);

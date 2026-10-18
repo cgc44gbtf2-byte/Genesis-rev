@@ -1,7 +1,9 @@
 # Class gear audit
 
-This pass checks the ten supported single classes. It does not introduce
-hybrids, new object templates, or new prices. The reference world data is
+This audit covers the ten supported single classes. It does not introduce
+hybrids or new object templates. Permanent gear prices remain unchanged; the
+Drow ammunition follow-up adds the documented 100-point bolt recipe.
+The reference world data is
 `Genesis.zip`; operators must verify their installed areas separately.
 
 ## Crafting inventory and existing prices
@@ -133,6 +135,54 @@ world-archive edits or player-file migrations are installed. Back up world and
 player data before rollout; players still need to craft or obtain bolts to fire.
 The recipe always creates native bolt 29659. Crossbows deliberately customized
 to a different ammunition vnum still need their configured ammunition supplied.
+
+## Conjured consumables and market follow-up
+
+All ten class directories and shared player object-creation paths were traced.
+The confirmed renewable-resource resale paths were Sorcerer supplies,
+Vampire Shadowforge weapons, and equipment created for mirror images.
+Ordinary `cloneobject` already assigns zero value; the shared market now also
+rejects all `ITEM_VANISH` illusions, including legacy mirror equipment.
+
+| Class/path | Resource rule preserved | Economy/lifecycle result |
+|---|---|---|
+| Vampire Shadowforge | Obtenebration 6, 50 blood; slash/pierce/blunt, timer 2700 | Zero shop/refund value; old saved native 29639 weapons also refused by shops |
+| Vampire mirror / Vampire-Werewolf illusions | Existing prerequisites and costs | Mirror equipment created without monetary/refund value; all illusory objects refused on both shop sides |
+| Sorcerer page/book/pen | Page free; book/pen 10 primal | Zero monetary/refund value; old 30037 writing supplies also refused by shops; tradability unchanged |
+| Werewolf Faerie Light | Fianna 1, no new charge | Zero monetary/refund value; missing/wrong-type template or room fails safely |
+| Werewolf Fetish Doll | Uktena 5; one matching held body part | Validate doll template/recovery room; preserve valid severed heads but protect unrelated shaped/containing/artifact objects; zero monetary/refund value |
+| Drow bolts | 100 Drow points per bolt, firing +500 | Existing bounded recipe and zero-resale safeguards retained |
+| Mage / shared soulblade, light, food, spring spells | Existing cast prerequisites/mana charges | Created items have zero monetary/refund value; validate templates; bound malformed extreme food/spring levels |
+| Ninja, Monk, Elemental, Highlander, Dragon | Existing abilities and permanent gear costs | No additional class-owned physical-consumable factory found; Ninja bomb attacks do not manufacture a saleable bomb object |
+
+Shop valuation rejects negative/overflowing prices/profit factors, invalid
+staff/wand charge counts and shaped-character objects. Buying/selling checks
+gold arithmetic before moving items or charging. Selling keeps remaining item
+lifetimes instead of making timed goods permanent, and replaces the cleared
+ownership string safely rather than retaining a freed pointer.
+
+This is not a blanket repricing of world stock or paid permanent relics.
+Older ordinary food/light/spring/soulblade objects are not retroactively
+rewritten or identified as conjured: their templates may also be used by
+operators for legitimate world stock. The dedicated Shadowforge/writing-supply
+and illusion checks protect those identifiable legacy cases without a save
+migration. Staff creation, quest-card pricing/rewards and general currency
+transfers were not redesigned.
+
+Real-engine gear regressions cover new/legacy supply valuation, actual sales,
+refund and save/reload boundaries, timer/owner preservation through sell/buy,
+player/shop gold overflow, malformed wand/staff charges, missing/wrong-type
+templates, protected body parts and successful one-part/one-doll creation.
+Valid reciprocal severed heads retain the existing final-death/altar recovery
+behavior; a missing altar now fails before the head is consumed.
+Held reciprocal heads can now resolve their player even when normal character
+lookup hides severed characters; unrelated object-character links cannot
+bypass lookup.
+Live multiplayer balance, power-loss behavior and comprehensive economy/soak
+testing remain separate work; crafting retains normal player-save timing.
+Fetish matching still uses the legacy part-name/value metadata; this pass does
+not add a new body-part provenance or save format. The unsafe use of an item
+name as a printf format string has been removed.
 
 `test_drow_ammo` exercises the real engine's consumption, eligibility, ownership,
 custom/legacy compatibility, all five barrier types, misses, safety boundaries,

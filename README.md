@@ -6,6 +6,9 @@ Class gear inventory, prices, corrected bugs and remaining content gaps:
 Drow can craft supplies with `drowarmor bolts [1-20]` at 100 Drow points per
 bolt (default one, no quest/gold/primal charge); firing still costs 500 points.
 
+Conjured-supply resale and timed-item shop safeguards are documented in
+[the consumable economy audit](deploy/CLASS_GEAR.md#conjured-consumables-and-market-follow-up).
+
 Managed class-clan governance is documented in
 [deploy/CLAN_MANAGEMENT.md](deploy/CLAN_MANAGEMENT.md). Staff adoption is
 required before legacy clan-management aliases confer authority. Offices are

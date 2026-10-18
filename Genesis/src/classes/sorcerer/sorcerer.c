@@ -168,6 +168,8 @@ void do_sorccreate( CHAR_DATA *ch, char *argument )
     }
 
     obj = create_object(prototype, 0);
+    obj->cost = 0;
+    obj->points = 0;
     obj->item_type = itemtype;
     if (itemtype == ITEM_PEN || itemtype == ITEM_BOOK) obj->wear_flags = ITEM_TAKE + ITEM_WEAR_HOLD;
 
