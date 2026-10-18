@@ -616,7 +616,69 @@ OBJ_DATA *get_eq_char( CHAR_DATA *ch, long iWear )
 /*
  * Equip a char with an obj.
  */
-void equip_char( CHAR_DATA *ch, OBJ_DATA *obj, long iWear )
+/* Rebuild the equipment-owned flags and resistance from what is actually
+ * worn. Increment/decrement after a 75% cap loses contributions when the
+ * wearer removes one of several items. The same early returns also skipped
+ * artifact and silver ownership when a spell effect was already active. */
+static long equipment_spell(const OBJ_DATA *obj)
+{
+    if (obj->item_type == ITEM_ARMOR && obj->value[3] >= 1)
+        return obj->value[3];
+    if (obj->item_type == ITEM_WEAPON && obj->value[0] >= 1000)
+        return obj->value[0] / 1000;
+    if (IS_SET(obj->spectype, SITEM_SILVER) ||
+        IS_SET(obj->quest, QUEST_ARTIFACT))
+        return obj->item_type == ITEM_ARMOR ?
+            obj->value[3] : obj->value[0] / 1000;
+    return -1;
+}
+
+static long equivalent_equipment_spell(long spell)
+{
+    switch (spell) {
+    case 27: return 2; case 39: return 3; case 45: return 1;
+    case 46: return 5; case 52: return 6; case 57: return 8;
+    default: return spell;
+    }
+}
+
+static bool other_equipment_grants(CHAR_DATA *ch, const OBJ_DATA *removed, long spell)
+{
+    if (spell < 0) return FALSE;
+    for (OBJ_DATA *obj = ch->carrying; obj != NULL; obj = obj->next_content)
+        if (obj != removed && obj->wear_loc != WEAR_NONE &&
+            equivalent_equipment_spell(equipment_spell(obj)) ==
+            equivalent_equipment_spell(spell)) return TRUE;
+    return FALSE;
+}
+
+void refresh_equipment_state(CHAR_DATA *ch)
+{
+    long flags = 0, resistance = 0;
+    if (ch == NULL) return;
+    if (IS_DRAGON(ch) && IS_POLYAFF(ch, POLY_DRAGONFORM) &&
+        ch->vampgen >= 1 && ch->vampgen < 7)
+        resistance = ch->vampgen == 1 ? 50 : (7 - ch->vampgen) * 10;
+    for (OBJ_DATA *obj = ch->carrying; obj != NULL; obj = obj->next_content) {
+        if (obj->wear_loc == WEAR_NONE) continue;
+        if (IS_HIGHLANDER(ch) && IS_SET(obj->spectype, SITEM_HIGHLANDER))
+            resistance = UMIN(75, resistance + 50);
+        if (IS_DROW(ch) && IS_SET(obj->spectype, SITEM_DROW))
+            resistance = UMIN(75, resistance + 10);
+        if (IS_SET(obj->quest, QUEST_ARTIFACT)) flags |= ITEMA_ARTIFACT;
+        if (IS_SET(obj->spectype, SITEM_SILVER) && obj->wear_loc == WEAR_WEAPON)
+            flags |= ITEMA_RIGHT_SILVER;
+        if (IS_SET(obj->spectype, SITEM_SILVER) && obj->wear_loc == WEAR_HOLD)
+            flags |= ITEMA_LEFT_SILVER;
+        if (equipment_spell(obj) == 20) flags |= ITEMA_REFLECT;
+    }
+    if (flags & ITEMA_REFLECT) resistance = UMIN(75, resistance + 50);
+    ch->itemaffect = (ch->itemaffect &
+        ~(ITEMA_REFLECT | ITEMA_ARTIFACT | ITEMA_RIGHT_SILVER | ITEMA_LEFT_SILVER)) | flags;
+    if (!IS_NPC(ch) && ch->pcdata != NULL) ch->pcdata->atm = resistance;
+}
+
+static void equip_char_inner( CHAR_DATA *ch, OBJ_DATA *obj, long iWear )
 {
     CHAR_DATA   *chch;
     AFFECT_DATA *paf;
@@ -854,10 +916,16 @@ void equip_char( CHAR_DATA *ch, OBJ_DATA *obj, long iWear )
     return;
 }
 
+void equip_char(CHAR_DATA *ch, OBJ_DATA *obj, long iWear)
+{
+    equip_char_inner(ch, obj, iWear);
+    refresh_equipment_state(ch);
+}
+
 /*
  * Unequip a char with an obj.
  */
-void unequip_char( CHAR_DATA *ch, OBJ_DATA *obj )
+static void unequip_char_inner( CHAR_DATA *ch, OBJ_DATA *obj )
 {
     AFFECT_DATA *paf;
     long sn;
@@ -910,7 +978,9 @@ void unequip_char( CHAR_DATA *ch, OBJ_DATA *obj )
 	    sn = obj->value[3];
 	else
 	    sn = obj->value[0] * 0.001;
-	if (IS_AFFECTED(ch, AFF_BLIND) && (sn == 4)
+if (!other_equipment_grants(ch, obj, sn))
+{
+if (IS_AFFECTED(ch, AFF_BLIND) && (sn == 4)
 		&& !is_affected(ch, 4))
 	{
 	    REMOVE_BIT(ch->affected_by, AFF_BLIND);
@@ -1032,6 +1102,7 @@ void unequip_char( CHAR_DATA *ch, OBJ_DATA *obj )
 	    send_to_char( "You emerge from the shadows.\n\r", ch );
 	    act("$n gradually fades out of the shadows.",ch,NULL,NULL,TO_ROOM);
 	}
+}
 
 	if (IS_SET(obj->quest, QUEST_ARTIFACT)) 
 	    REMOVE_BIT(ch->itemaffect, ITEMA_ARTIFACT);
@@ -1041,6 +1112,12 @@ void unequip_char( CHAR_DATA *ch, OBJ_DATA *obj )
 	    REMOVE_BIT(ch->itemaffect, ITEMA_LEFT_SILVER);
     }
     return;
+}
+
+void unequip_char(CHAR_DATA *ch, OBJ_DATA *obj)
+{
+    unequip_char_inner(ch, obj);
+    refresh_equipment_state(ch);
 }
 
 

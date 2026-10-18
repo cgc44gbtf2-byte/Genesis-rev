@@ -22,6 +22,7 @@ tests/test_vampire_modules
 tests/test_damage_messages
 tests/test_transformations
 tests/test_clans
+tests/test_class_gear
 tests/stun_engine/
 Genesis/player/
 Genesis/backup/

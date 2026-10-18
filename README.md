@@ -1,5 +1,8 @@
 # Godwars: Anathema
 
+Class gear inventory, prices, corrected bugs and remaining content gaps:
+[deploy/CLASS_GEAR.md](deploy/CLASS_GEAR.md).
+
 Managed class-clan governance is documented in
 [deploy/CLAN_MANAGEMENT.md](deploy/CLAN_MANAGEMENT.md). Staff adoption is
 required before legacy clan-management aliases confer authority. Offices are
@@ -301,7 +304,7 @@ costs, ranks, skill slots, player-data layout or hybrid availability change.
 See [class ownership and the remaining cleanup stages](deploy/CLASS_LAYOUT.md)
 for the ten-class map, shared engine hooks and the separate saved-field
 migration work. `make test` now includes ten layout checks alongside
-21 C suites; `python3 tests/test_catalog.py` runs ten additional catalog checks.
+22 C suites; `python3 tests/test_catalog.py` runs thirteen additional catalog checks.
 Runtime optimization remains measurement-driven, not an assumed benefit of
 file organization.
 

@@ -124,6 +124,7 @@ void do_colors( CHAR_DATA *ch, char *argument )
 void do_sorccreate( CHAR_DATA *ch, char *argument )
 {
     OBJ_DATA *obj;
+    OBJ_INDEX_DATA *prototype;
     char arg[MIL];
     char buf[MIL];
     long itemtype;
@@ -150,6 +151,13 @@ void do_sorccreate( CHAR_DATA *ch, char *argument )
 	return;
     }
 
+    /* The old path charged primal and then exited the server when the
+     * protoplasm world template was absent. Validate before any payment. */
+    if ((prototype = get_obj_index(OBJ_VNUM_PROTOPLASM)) == NULL)
+    {
+        stc("The item template is unavailable; please tell staff.\n\r", ch);
+        return;
+    }
     if (itemtype == ITEM_PEN || itemtype == ITEM_BOOK)
     {
 	if (ch->primal < 10)
@@ -157,10 +165,9 @@ void do_sorccreate( CHAR_DATA *ch, char *argument )
 	    stc("Creating a pen or book requires 10 primal.\n\r", ch);
 	    return;
 	}
-	ch->primal -= 10;
     }
 
-    obj = create_object(get_obj_index(OBJ_VNUM_PROTOPLASM), 0);
+    obj = create_object(prototype, 0);
     obj->item_type = itemtype;
     if (itemtype == ITEM_PEN || itemtype == ITEM_BOOK) obj->wear_flags = ITEM_TAKE + ITEM_WEAR_HOLD;
 
@@ -180,6 +187,7 @@ void do_sorccreate( CHAR_DATA *ch, char *argument )
     obj->questmaker = str_dup(ch->name);
 
     obj_to_char(obj, ch);
+    if (itemtype == ITEM_PEN || itemtype == ITEM_BOOK) ch->primal -= 10;
     act("$p suddenly appears in your hands.", ch, obj, NULL, TO_CHAR);
     act("$p suddenly appears in $n's hands.", ch, obj, NULL, TO_ROOM);
     return;

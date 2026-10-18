@@ -1534,29 +1534,34 @@ void do_mageenchant(CHAR_DATA *ch, char * argument)
 
    quintessence = 5;
 
-    if (quintessence > ch->quint[BODY] && !IS_XTRA(ch, XTRA_HEARTS_BLOOD))
+    if (ch->quint[BODY] < 0)
     {
-        send_to_char("You do not have enough quintessence.\n\r", ch);
+        send_to_char("Your quintessence is invalid; please tell staff.\n\r", ch);
         return;
     }
-    else if (quintessence > ch->quint[BODY] && (quintessence - ch->quint[BODY]) < 6)
-    {
-        hearts_blood(ch, quintessence);
-    }
-    else if (quintessence > ch->quint[BODY])
-    {
-        send_to_char("You cannot use heart's blood too put more than 5 quintessence into a spell.\n\r", ch);
-        return;
-
-    }
-   
     if (ch->mana < MANA_ENCHANT)
     {
         send_to_char("You don't have enough mana to cast enchant.\n\r", ch);
         return;
     }
+    if (quintessence > ch->quint[BODY] && !IS_XTRA(ch, XTRA_HEARTS_BLOOD))
+    {
+        send_to_char("You do not have enough quintessence.\n\r", ch);
+        return;
+    }
+    /* Heart's blood deals 200-500 HP per missing point. Never enter a
+     * potentially fatal self-damage path before committing the cast cost. */
+    long missing = quintessence > ch->quint[BODY] ?
+        quintessence - ch->quint[BODY] : 0;
+    if (missing > 0 && ch->hit <= missing * 500)
+    {
+        send_to_char("You cannot survive channeling that much heart's blood.\n\r", ch);
+        return;
+    }
 
     ch->mana -= MANA_ENCHANT;
+    ch->quint[BODY] -= quintessence - missing;
+    if (missing > 0) hearts_blood(ch, missing);
 
     power = spellpower(ch, 3); //enchant uses lvl 3 prime
 

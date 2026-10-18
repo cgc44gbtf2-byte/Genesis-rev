@@ -3320,6 +3320,8 @@ void	clear_stats	args( ( CHAR_DATA *ch ) );
 /* Stat/equipment cleanup only; finish the transformation before autosaving. */
 void	reset_form_stats args( ( CHAR_DATA *ch ) );
 
+/* handler.c: equipment-owned flags and capped resistance after gear changes. */
+void refresh_equipment_state(CHAR_DATA *ch);
 /* clans.c: persistent governance, independent of class power progression. */
 bool clan_load_registry(void);
 void clan_registry_close(void);

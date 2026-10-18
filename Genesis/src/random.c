@@ -434,8 +434,8 @@ void do_wolfarmor( CHAR_DATA *ch, char *argument )
     else if (!str_cmp(arg,"talisman")) vnum = 29642;
     else
     {
-	send_to_char("Please specify which piece of armor you wish to make:\n\r Klaive Necklace Snarl Scars Veil Helios\n\r",ch);
-	return;
+        send_to_char("Choose Vest, Mask, or Talisman.\n\r", ch);
+        return;
     }
     
     if (vnum == 0 || (pObjIndex = get_obj_index(vnum)) == NULL)

@@ -47,6 +47,7 @@ void do_dragonform( CHAR_DATA *ch, char *argument )
 	REMOVE_BIT(ch->vampaff, VAM_DISGUISED);
 	REMOVE_BIT(ch->polyaff, POLY_DRAGONFORM);
 	ch->pcdata->atm = 0;
+refresh_equipment_state(ch);
 	send_to_char("Your body shrinks back to its human form.\n\r",ch);
 	act("A large dragon's body shrinks into the form of $n.",ch,NULL,NULL,TO_ROOM);
 	update_style(ch);
@@ -90,8 +91,7 @@ void do_dragonform( CHAR_DATA *ch, char *argument )
     free_string(ch->morph);
     ch->morph = str_dup(age);
 
-    if (ch->vampgen <= 1) ch->pcdata->atm = 50;
-    else if (ch->vampgen < 7) ch->pcdata->atm = (7 - ch->vampgen) * 10;
+    refresh_equipment_state(ch);
 
     if (IS_DRAGAFF(ch, DRAG_CLAWS)) do_claws(ch,"");
     if (IS_DRAGAFF(ch, DRAG_HORNS)) do_horns(ch,"");

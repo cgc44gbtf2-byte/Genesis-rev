@@ -378,7 +378,7 @@ void do_forge( CHAR_DATA *ch, char *argument )
 	free_string( obj->questowner );
 	obj->questowner = str_dup( ch->name );
 	SET_BIT(obj->quest, QUEST_AGGRAVATED);
-	for (value = 0;value <= 4;value++)
+for (value = 0;value < 4;value++)
 	    obj->value[value] = invobj->value[value];
 	act("You reforge $p.",ch,invobj,NULL,TO_CHAR);
 	act("$n reforges $p.",ch,invobj,NULL,TO_ROOM);

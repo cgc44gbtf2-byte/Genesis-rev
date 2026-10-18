@@ -160,6 +160,9 @@ void act( const char *format, CHAR_DATA *ch, const void *arg1, const void *arg2,
      * Discard null and zero-length messages.
      */
     if (format == NULL || format[0] == '\0') return;
+    /* Full player loads can own equipped items before entering a room.
+     * Removing those items during failed-login cleanup has no room audience. */
+    if (ch == NULL || ch->in_room == NULL) return;
 
     to = ch->in_room->people;
     if (type == TO_VICT)

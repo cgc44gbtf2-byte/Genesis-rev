@@ -15,8 +15,59 @@ def class_sources():
 def engine_sources():
     return [*SRC.glob("*.c"), *class_sources()]
 
+def bundled_objects(path):
+    """Read object records only; colored descriptions also begin with '#'.
+    This is a reference archive, not evidence of deployed area contents."""
+    with zipfile.ZipFile(SRC.parents[1] / "Genesis.zip") as archive:
+        text = archive.read("Genesis/area/" + path).decode("latin1")
+    section = text.split("#OBJECTS", 1)[1]
+    result = {}
+    for match in re.finditer(r"^#(\d+)\s*\n(.*?)(?=^#\d+\s*$|\Z)",
+                             section, re.M | re.S):
+        vnum = int(match[1])
+        if not vnum:
+            break
+        data = match[2].split("~", 4)[4].strip().splitlines()
+        result[vnum] = (int(data[0].split()[0]),
+                        [int(value) for value in data[1].split()])
+    return result
+
 
 class CatalogChecks(unittest.TestCase):
+    def test_class_crafting_templates_exist_with_expected_types(self):
+        relics = bundled_objects("relic.are")
+        weapons = {29621, 29639, 29650}
+        vnums = {
+            29600, 29601, 29602, 29603, 29610, 29611, 29612, 29613, 29614,
+            29620, 29621, 29630, 29631, 29632, 29639, 29640, 29641, 29642,
+            29650, 29652, 29653, 29654, 29655, 29658, 29660, 29661, 29662,
+        }
+        self.assertEqual(len(vnums), 27)
+        for vnum in vnums:
+            with self.subTest(vnum=vnum):
+                kind, values = relics[vnum]
+                self.assertEqual(kind, 5 if vnum in weapons else 31 if vnum == 29658 else 9)
+                self.assertEqual(len(values), 4)
+                if kind == 5:
+                    self.assertGreaterEqual(values[1], 0)
+                    self.assertGreaterEqual(values[2], values[1])
+
+    def test_sorcerer_material_and_drow_ammo_reference_templates(self):
+        self.assertIn(30037, bundled_objects("kavir.are"))
+        relics = bundled_objects("relic.are")
+        kind, missile = relics[29658]
+        ammo_kind, ammo = bundled_objects("galaxy.are")[missile[0]]
+        self.assertEqual((kind, ammo_kind, relics[29659][0]), (31, 32, 32))
+        self.assertEqual(missile[3], ammo[3])
+        self.assertEqual(missile[3], relics[29659][1][3])
+
+    def test_wolf_gear_no_longer_advertises_unimplemented_recipes(self):
+        body = (SRC / "random.c").read_text().split("void do_wolfarmor(", 1)[1]
+        body = body.split("\nvoid ", 1)[0]
+        self.assertIn("Vest, Mask, or Talisman", body)
+        for obsolete in ("Klaive", "Necklace", "Snarl", "Scars", "Veil", "Helios"):
+            self.assertNotIn(obsolete, body)
+
     def test_displayed_vampire_commands_dispatch_to_the_right_handler(self):
         table = (SRC / "interp.c").read_text().split("social_table")[0]
         commands = re.findall(r'\{\s*"([^"]+)"\s*,\s*(do_\w+)', table)
