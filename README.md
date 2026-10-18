@@ -310,7 +310,7 @@ costs, ranks, skill slots, player-data layout or hybrid availability change.
 See [class ownership and the remaining cleanup stages](deploy/CLASS_LAYOUT.md)
 for the ten-class map, shared engine hooks and the separate saved-field
 migration work. `make test` now includes ten layout checks alongside
-24 C suites; `python3 tests/test_catalog.py` runs fourteen additional catalog checks.
+25 C suites; `python3 tests/test_catalog.py` runs fourteen additional catalog checks.
 Runtime optimization remains measurement-driven, not an assumed benefit of
 file organization.
 
@@ -319,6 +319,12 @@ unwinds switched sessions before player removal, preserves switched-player idle
 activity, and releases staff class-reset links. A real-engine suite exercises
 those paths with private players, rooms and socket pairs. Scope, unchanged
 behavior and remaining risks: [lifecycle safety](deploy/LIFECYCLE_SAFETY.md).
+
+Switched originals now participate in periodic saves. Primary/backup failures
+have independent bounded retries while the character remains loaded, with
+truthful manual-save outcomes and a durable-primary checkpoint before logout
+cleanup. Policy, failure cases and limitations:
+[autosave recovery](deploy/AUTOSAVE_RECOVERY.md).
 
 The first bounded extraction moved six existing Vampire/Werewolf handlers out
 of `clan.c`: Majesty, Awe, Humanity, Beastlike, Umbral Vision and Rage. Their

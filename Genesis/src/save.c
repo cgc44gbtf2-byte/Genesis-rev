@@ -117,7 +117,7 @@ static bool save_player_atomic(CHAR_DATA *ch, const char *directory)
     if ( ch->desc != NULL && ch->desc->original != NULL )
         ch = ch->desc->original;
 
-    if ( IS_NPC(ch) || ch->level < 2 )
+    if ( IS_NPC(ch) || ch->pcdata == NULL || ch->level < 2 )
         return FALSE;
 
     /* Validate before capitalization or construction of any filesystem path.
@@ -133,13 +133,27 @@ static bool save_player_atomic(CHAR_DATA *ch, const char *directory)
         name[i] = i == 0 ? UPPER(c) : LOWER(c);
     }
     name[i] = '\0';
-    ch->save_time = current_time;
     if (fpReserve != NULL)
     {
         fclose(fpReserve);
         fpReserve = NULL;
     }
     result = atomic_save(directory, name, write_player_save, ch, &error);
+    /* Queue each destination independently. Failed or backup writes must not
+     * masquerade as a durable primary save or hide its retry deadline. */
+    unsigned int slot = strcmp(directory,BACKUP_DIR) == 0 ? 1u : 0u;
+    unsigned int bit = slot == 0 ? PLAYER_SAVE_PRIMARY : PLAYER_SAVE_BACKUP;
+    ch->save_attempt_time = ch->save_retry_time[slot] = current_time;
+    if (result == ATOMIC_SAVE_OK) {
+        ch->save_pending &= ~bit;
+        ch->save_retry_delay[slot] = 0;
+        if (slot == 0) ch->save_time = current_time;
+    } else {
+        ch->save_pending |= bit;
+        unsigned int delay = ch->save_retry_delay[slot];
+        ch->save_retry_delay[slot] = delay == 0 ? 30 :
+            (delay >= 150 ? 300 : delay * 2);
+    }
     fpReserve = fopen( NULL_FILE, "r" );
     if (fpReserve == NULL)
         bug("Player save: could not reopen reserve file", 0);
@@ -174,7 +188,12 @@ void save_char_obj( CHAR_DATA *ch )
 
 void save_char_obj_backup( CHAR_DATA *ch )
 {
-    save_player_atomic(ch, BACKUP_DIR);
+    save_char_obj_backup_checked(ch);
+}
+
+bool save_char_obj_backup_checked(CHAR_DATA *ch)
+{
+    return save_player_atomic(ch,BACKUP_DIR);
 }
 
 /*
@@ -234,7 +253,8 @@ void fwrite_char( CHAR_DATA *ch, FILE *fp )
     fprintf( fp, "Gold         %li\n",	ch->gold		);
     fprintf( fp, "Exp          %li\n",	ch->exp			);
     fprintf( fp, "Act          %li\n",  ch->act			);
-    fprintf( fp, "Extra        %li\n",  ch->extra		);
+    /* Descriptor ownership is runtime-only; keep the live switch untouched. */
+    fprintf( fp, "Extra        %li\n",  ch->extra & ~EXTRA_SWITCH);
     fprintf( fp, "More         %li\n",  ch->more		);
     fprintf( fp, "Xtra         %li\n",  ch->xtra		);
     fprintf( fp, "AffectedBy   %li\n",	ch->affected_by		);
@@ -1385,7 +1405,11 @@ void fread_char( CHAR_DATA *ch, FILE *fp )
 	case 'E':
 	    KEY( "Email",	ch->pcdata->email,	fread_string( fp ) );
 	    if ( !str_cmp( word, "End" ) )
-		return;
+            {
+                /* Older saves may contain this runtime-only marker. */
+                REMOVE_BIT(ch->extra,EXTRA_SWITCH);
+                return;
+            }
 	    KEY( "Exp",		ch->exp,		fread_number( fp ) );
 	    KEY( "Extra",	ch->extra,		fread_number( fp ) );
 	    break;

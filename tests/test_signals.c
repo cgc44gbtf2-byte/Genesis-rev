@@ -16,6 +16,14 @@
 CHAR_DATA *char_list;
 static CHAR_DATA *saved[32];
 static int save_count;
+static unsigned int save_result = PLAYER_SAVE_ALL;
+static int save_warnings;
+
+void log_string(const char *text)
+{
+    assert(strstr(text,"shutdown primary save failed") != NULL);
+    ++save_warnings;
+}
 
 void save_char_obj(CHAR_DATA *ch)
 {
@@ -26,6 +34,31 @@ void save_char_obj(CHAR_DATA *ch)
     saved[save_count++] = ch;
 }
 
+unsigned int player_save_state(CHAR_DATA *ch, unsigned int destinations)
+{
+    assert(destinations == PLAYER_SAVE_ALL);
+    save_char_obj(ch);
+    return save_result;
+}
+
+static void test_shutdown_failure_reporting(void)
+{
+    CHAR_DATA ch = {0}; PC_DATA pc = {0};
+    ROOM_INDEX_DATA room = {0}; DESCRIPTOR_DATA d = {0};
+    ch.name="Failure"; ch.level=LEV_AWA; ch.pcdata=&pc; ch.in_room=&room;
+    ch.desc=&d; d.character=&ch; d.connected=CON_NOTE_TEXT;
+    d.password_save_pending=TRUE;
+    char_list=&ch; save_count=0; save_warnings=0;
+    save_result=PLAYER_SAVE_BACKUP;
+    save_shutdown_players();
+    assert(save_count==1 && save_warnings==1 && d.password_save_pending &&
+           ch.desc==&d && d.connected==CON_NOTE_TEXT);
+    save_result=PLAYER_SAVE_PRIMARY;
+    save_shutdown_players();
+    assert(save_count==2 && save_warnings==1 && !d.password_save_pending &&
+           ch.desc==&d);
+    save_result=PLAYER_SAVE_ALL; char_list=NULL;
+}
 static void test_save_eligibility(void)
 {
     CHAR_DATA players[15] = {{0}};
@@ -169,6 +202,7 @@ static void test_socket_reuse(void)
 int main(void)
 {
     test_save_eligibility();
+    test_shutdown_failure_reporting();
     test_stop_handlers();
     test_select_interrupt(1, SIGTERM);
     test_select_interrupt(0, SIGINT);

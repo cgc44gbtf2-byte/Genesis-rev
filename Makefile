@@ -4,7 +4,7 @@ TEST_FLAGS = -std=gnu17 -O1 -g -ffunction-sections -fdata-sections
 TEST_LDFLAGS = -Wl,--gc-sections
 TEST_CPPFLAGS = -IGenesis/src $(CPPFLAGS)
 include Genesis/src/classes/modules.mk
-TESTS = tests/test_comm tests/test_db tests/test_gameplay tests/test_buffers tests/test_save tests/test_signals tests/test_classes tests/test_powers tests/test_wall tests/test_mage_powers tests/test_combat_status tests/test_vampire tests/test_class_runtime tests/test_restored_spells tests/test_basic_buffs tests/test_class_identity tests/test_class_handlers tests/test_vampire_modules tests/test_damage_messages tests/test_transformations tests/test_clans tests/test_class_gear tests/test_drow_ammo tests/test_lifecycle_ownership
+TESTS = tests/test_comm tests/test_db tests/test_gameplay tests/test_buffers tests/test_save tests/test_signals tests/test_classes tests/test_powers tests/test_wall tests/test_mage_powers tests/test_combat_status tests/test_vampire tests/test_class_runtime tests/test_restored_spells tests/test_basic_buffs tests/test_class_identity tests/test_class_handlers tests/test_vampire_modules tests/test_damage_messages tests/test_transformations tests/test_clans tests/test_class_gear tests/test_drow_ammo tests/test_lifecycle_ownership tests/test_autosave_recovery
 ENGINE_SOURCES = $(wildcard Genesis/src/*.c) $(addprefix Genesis/src/,$(CLASS_MODULE_SOURCES))
 ENGINE_HEADERS = $(wildcard Genesis/src/*.h Genesis/src/classes/*.h Genesis/src/classes/*/*.h)
 ENGINE_OBJECTS = $(patsubst Genesis/src/%.c,tests/stun_engine/%.o,$(ENGINE_SOURCES))
@@ -44,7 +44,7 @@ test: check-layout $(TESTS)
 
 # Link the real engine, including actual safety, combat and interpreter paths.
 # Only the server entry point is renamed; no real accounts/world files load.
-tests/test_combat_status tests/test_vampire tests/test_basic_buffs tests/test_class_handlers tests/test_vampire_modules tests/test_damage_messages tests/test_transformations tests/test_clans tests/test_class_gear tests/test_drow_ammo tests/test_lifecycle_ownership: tests/%: tests/%.c $(ENGINE_OBJECTS)
+tests/test_combat_status tests/test_vampire tests/test_basic_buffs tests/test_class_handlers tests/test_vampire_modules tests/test_damage_messages tests/test_transformations tests/test_clans tests/test_class_gear tests/test_drow_ammo tests/test_lifecycle_ownership tests/test_autosave_recovery: tests/%: tests/%.c $(ENGINE_OBJECTS)
 	$(CC) $(TEST_CPPFLAGS) $(CFLAGS) $(TEST_FLAGS) $< $(ENGINE_OBJECTS) $(LDFLAGS) $(TEST_LDFLAGS) $(LDLIBS) -o $@
 
 # Separate test objects keep sanitizer flags out of the production executable.

@@ -884,6 +884,15 @@ void do_quit( CHAR_DATA *ch, char *argument )
 	return;
     }
 
+    /* Commit an ordinary live snapshot before discarding a note, consuming
+     * shaped equipment or releasing a character. A backup alone is not the
+     * authoritative login file. Initial ineligible sleepers keep old policy. */
+    if (player_save_owner(ch) != NULL &&
+        !(player_save_state(ch,PLAYER_SAVE_PRIMARY) & PLAYER_SAVE_PRIMARY)) {
+        stc("Quit cancelled: your player save failed. You remain in the game; a retry is scheduled.\n\r",ch);
+        return;
+    }
+
     if (IS_MORE(ch, MORE_DARKNESS) && ch->in_room != NULL)
     {
 	REMOVE_BIT(ch->in_room->added_flags, ROOM2_DARKNESS); 
@@ -970,19 +979,23 @@ void do_quit( CHAR_DATA *ch, char *argument )
 
 void do_save( CHAR_DATA *ch, char *argument )
 {
-    do_autosave(ch, "");
-    stc("Saved.\n\r", ch);
+    if (player_save_owner(ch) == NULL) {
+        stc("This character is not eligible for a player save.\n\r",ch);
+        return;
+    }
+    unsigned int saved = player_save_state(ch,PLAYER_SAVE_ALL);
+    if (saved == PLAYER_SAVE_ALL) stc("Saved.\n\r",ch);
+    else if (saved & PLAYER_SAVE_PRIMARY)
+        stc("Player saved, but backup failed. Backup retry scheduled while you remain loaded.\n\r",ch);
+    else if (saved & PLAYER_SAVE_BACKUP)
+        stc("Primary save failed; only the backup saved. Primary retry scheduled.\n\r",ch);
+    else stc("Save failed. Retries are scheduled while you remain loaded.\n\r",ch);
     return;
 }
 
 void do_autosave( CHAR_DATA *ch, char *argument )
 {
-    if (IS_NPC(ch) || !IS_AWA(ch)) return;
-    get_totalscore(ch);
-
-    check_leaderboard(ch, "");
-    save_char_obj(ch);
-    save_char_obj_backup(ch);
+    player_save_state(ch,PLAYER_SAVE_ALL);
     return;
 }
 

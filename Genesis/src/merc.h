@@ -1508,7 +1508,11 @@ struct	char_data
     long		level;
     long		played;
     time_t		logon;
-    time_t		save_time;
+    time_t		save_time; /* Last durably successful primary save only. */
+    time_t              save_attempt_time;
+    time_t              save_retry_time[2];
+    unsigned int        save_retry_delay[2];
+    unsigned int        save_pending;
     long		timer;
     long		wait;
     /* Transient combat state; never serialized into player saves. */
@@ -3301,6 +3305,14 @@ void	enhance_stat	args( ( long sn, long level, CHAR_DATA *ch,
 long	get_ratio	args( ( CHAR_DATA *ch ) );
 
 /* save.c */
+bool save_char_obj_backup_checked(CHAR_DATA *ch);
+#define PLAYER_SAVE_PRIMARY 1u
+#define PLAYER_SAVE_BACKUP  2u
+#define PLAYER_SAVE_ALL     (PLAYER_SAVE_PRIMARY | PLAYER_SAVE_BACKUP)
+CHAR_DATA *player_save_owner(CHAR_DATA *ch);
+unsigned int player_save_state(CHAR_DATA *ch, unsigned int destinations);
+void player_autosave_tick(void);
+bool player_primary_retry_ready(const CHAR_DATA *ch);
 bool	save_char_obj_checked	args( ( CHAR_DATA *ch ) );
 void	save_char_obj		args( ( CHAR_DATA *ch ) );
 void	save_char_obj_backup	args( ( CHAR_DATA *ch ) );

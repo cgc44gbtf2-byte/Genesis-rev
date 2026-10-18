@@ -773,8 +773,12 @@ static void save_shutdown_players( void )
             continue;
 
         ch->desc = NULL;
-        save_char_obj( ch );
+        unsigned int saved = player_save_state(ch,PLAYER_SAVE_ALL);
         ch->desc = d;
+        if ((saved & PLAYER_SAVE_PRIMARY) && d != NULL)
+            d->password_save_pending = FALSE;
+        if (!(saved & PLAYER_SAVE_PRIMARY))
+            log_string("WARNING: shutdown primary save failed; unsaved changes may remain only in memory.");
     }
 }
 

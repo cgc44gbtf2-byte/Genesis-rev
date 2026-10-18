@@ -753,15 +753,10 @@ if (ch->spec_fun != 0)
    {   
       CHAR_DATA *ch;
       CHAR_DATA *ch_next;
-      CHAR_DATA *ch_save;
       CHAR_DATA *ch_quit;
    
       bool is_obj;
       bool drop_out = FALSE;
-      time_t save_time;
-   
-      save_time	= current_time;
-      ch_save	= NULL;
       ch_quit	= NULL;
       for ( ch = char_list; ch != NULL; ch = ch_next )
       {
@@ -777,16 +772,6 @@ if (ch->spec_fun != 0)
          {is_obj = TRUE;SET_BIT(ch->extra, EXTRA_OSWITCH);}
          else
             is_obj = FALSE;
-	/*
-	 * Find dude with oldest save time.
-	 */
-	if (!IS_NPC(ch) && IS_AWA(ch) && ch->save_time < save_time
-	 && descriptor_is_in_game(ch->desc))
-	{
-	    ch_save	= ch;
-	    save_time	= ch->save_time;
-	}
-
 	if (ch->position <= POS_STUNNED) update_pos(ch);
 
 	if (!IS_NPC(ch))
@@ -967,13 +952,13 @@ if (ch->spec_fun != 0)
      * Autosave and autoquit.
      * Check that these chars still exist.
      */
-    if (ch_save != NULL || ch_quit != NULL)
+    player_autosave_tick();
+    if (ch_quit != NULL)
     {
 	for (ch = char_list; ch != NULL; ch = ch_next)
 	{
 	    ch_next = ch->next;
-	    if (ch == ch_save) do_autosave(ch, "");
-	    if (ch == ch_quit) do_quit(ch, "");
+    if (ch == ch_quit && player_primary_retry_ready(ch)) do_quit(ch, "");
 	}
     }
     return;
