@@ -33,6 +33,14 @@ static bool parse_quint(CHAR_DATA *ch, const char *text, long *quint)
     return TRUE;
 }
 
+/* Heart's Blood pays a shortfall in health, not negative stored quint.
+ * Consume only the body portion still available after conversion. */
+static void spend_body_quint(CHAR_DATA *ch, long amount)
+{
+    long available = UMAX(0, ch->quint[BODY]);
+    ch->quint[BODY] = available - UMIN(available, UMAX(0, amount));
+}
+
 /* is_safe examines the caster's room. Local targets need no move; removing
  * a self-target also clears victim->in_room. Undo actual remote moves. */
 static bool mage_target_safe(CHAR_DATA *ch, CHAR_DATA *victim)
@@ -330,7 +338,7 @@ void do_beginners_luck(CHAR_DATA* ch, char * argument)
         return;
     }
 
-    ch->quint[BODY] -= quintessence;
+    spend_body_quint(ch, quintessence);
     ch->mana -= MANA_BEGINNERS_LUCK;
 
     power = spellpower(ch, 2); //Beginner's luck uses lvl 2 entropy
@@ -402,7 +410,7 @@ void do_brittle_bones(CHAR_DATA * ch, char * argument)
     }
 
         power += quint;
-        ch->quint[1] -= quint;
+        spend_body_quint(ch, quint);
     }
 
    // if (victim != ch) power -= 1; //costs 1 success to target someone else
@@ -516,7 +524,7 @@ char arg1[MAX_STRING_LENGTH], arg2[MAX_STRING_LENGTH];
         }
 
         power += quint;
-        ch->quint[1] -= quint;
+        spend_body_quint(ch, quint);
     }
 
    // if (victim != ch) power -= 1; //costs 1 success to target someone else
@@ -951,7 +959,7 @@ void do_alterweight( CHAR_DATA *ch, char * argument)
         }
 
         power += quint;
-        ch->quint[1] -= quint;
+        spend_body_quint(ch, quint);
     }
 
    // if (victim != ch) power -= 1; //costs 1 success to target someone else
@@ -1080,7 +1088,7 @@ void do_mage_invis( CHAR_DATA *ch, char * argument)
         return;
     }
 
-    ch->quint[BODY] -= quintessence;
+    spend_body_quint(ch, quintessence);
     ch->mana -= MANA_INVIS + (quintessence * MANA_QUINT);
 
     power = spellpower(ch, 5); //Invisability uses lvl 5 mind
@@ -1242,7 +1250,7 @@ void do_step_sideways(CHAR_DATA* ch, char * argument)
         }
 
         power += quint;
-        ch->quint[1] -= quint;
+        spend_body_quint(ch, quint);
     }
     dam = 0;
 
@@ -1335,7 +1343,7 @@ void do_break_dreamshell(CHAR_DATA* ch, char * argument)
         }
 
         power += quint;
-        ch->quint[1] -= quint;
+        spend_body_quint(ch, quint);
     }
     dam = 0;
 
@@ -1641,7 +1649,7 @@ void do_paradox_ward(CHAR_DATA *ch, char * argument)
 	return;
     }
 
-    ch->quint[BODY] -= quintessence;
+    spend_body_quint(ch, quintessence);
     ch->mana -= MANA_PARADOX_WARD + (quintessence * MANA_QUINT);
 
     power = spellpower(ch, 5); //Paradox ward uses lvl 5 prime
@@ -1903,7 +1911,7 @@ void do_mage_heal(CHAR_DATA *ch, char*argument)
     }
 
     ch->mana -= MANA_MAGE_HEAL + (correspondence * correspondence * 100) + (quint * MANA_QUINT);
-    ch->quint[1] -= quint;
+    spend_body_quint(ch, quint);
 
 
     for (loop = 0; loop < power; loop++)
@@ -1983,7 +1991,7 @@ void do_better_body(CHAR_DATA *ch, char *argument)
         }
 
         power += quint;
-        ch->quint[1] -= quint;
+        spend_body_quint(ch, quint);
     }
 
     if (power <= 0)
@@ -2103,7 +2111,7 @@ void do_polymorph_other(CHAR_DATA *ch, char *argument)
         }
 
         power += quint;
-        ch->quint[1] -= quint;
+        spend_body_quint(ch, quint);
     }
 
     if (power <= 0)
@@ -2309,7 +2317,7 @@ void do_friction_curse(CHAR_DATA *ch, char *argument)
 
     if (quint > ch->quint[BODY])
         hearts_blood(ch, quint);
-    ch->quint[BODY] -= quint;
+    spend_body_quint(ch, quint);
     power += quint;
     ch->mana -= MANA_FRICTION_CURSE + (correspondence * correspondence * 100) + (quint * MANA_QUINT);
 
@@ -2461,7 +2469,7 @@ void do_electrical_chaos( CHAR_DATA *ch, char *argument)
     }
 
     ch->mana -= MANA_ELECTRICAL_CHAOS + (correspondence * correspondence * 100) + (quint * MANA_QUINT);
-    ch->quint[1] -= quint;
+    spend_body_quint(ch, quint);
 
 
     if ((!IS_NPC(victim) && correspondence == 5) || (IS_NPC(victim) && victim->level > 800 && correspondence == 5))
@@ -2560,7 +2568,7 @@ void do_inferno( CHAR_DATA *ch, char *argument)
 	}
 
         power += quint;
-        ch->quint[1] -= quint;
+        spend_body_quint(ch, quint);
     }
 
     ch->mana -= MANA_INFERNO + (quint * MANA_QUINT);

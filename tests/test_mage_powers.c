@@ -144,6 +144,21 @@ static void unchanged(long mana)
 
 int main(void)
 {
+    for (long available = 0; available <= 2; ++available)
+    {
+        reset();
+        caster.quint[BODY] = available;
+        SET_BIT(caster.xtra, XTRA_HEARTS_BLOOD);
+        char args[64];
+        snprintf(args, sizeof(args), "target %ld", available + 1);
+        do_mage_heal(&caster, args);
+        assert(caster.quint[BODY] == 0);
+        assert(caster.hit == 9800 && damage_total == 200);
+        long correspondence = correspondence_level(&caster, &target);
+        assert(caster.mana == 100000 - MANA_MAGE_HEAL
+            - correspondence * correspondence * 100 - (available + 1) * MANA_QUINT);
+        assert(caster.in_room == &home && remote.people == &target);
+    }
     reset();
     assert(!mage_target_safe(&caster, &caster));
     unchanged(100000);

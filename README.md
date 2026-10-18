@@ -418,3 +418,11 @@ still calls the normal safety check. Remote targets retain the existing
 temporary move and restoration. Regression cases cover self-targets,
 protected self-targets and preservation of same-room character links.
 Spell costs, rank gates and numerical effects are unchanged.
+
+The next native pilot found that Heart's Blood-funded healing could debit
+more stored quintessence than remained, producing a negative body pool.
+Full-amount body debits now consume only the available stored portion;
+the existing Heart's Blood health payment covers the shortfall. Regression
+cases check empty and partially stocked pools alongside the actual health
+and mana charge. This does not change spell price constants or the
+five-quintessence Heart's Blood shortfall limit.
