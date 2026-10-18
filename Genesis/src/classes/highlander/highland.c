@@ -9,6 +9,156 @@
 #include <time.h>
 #include "merc.h"
 
+/* Counter is original Anathema code. Its reply modifies the next ordinary
+ * melee strike: it never recursively invokes damage/one_hit or keeps a target
+ * pointer across pulses. These timers are transient, not player-save fields. */
+static bool counter_katana(CHAR_DATA *ch, OBJ_DATA *weapon)
+{
+    return weapon != NULL && weapon->item_type == ITEM_WEAPON
+        && weapon->value[3] == TYPE_SLASH
+        && IS_SET(weapon->spectype, SITEM_HIGHLANDER)
+        && weapon->questowner != NULL
+        && !str_cmp(weapon->questowner, ch->name);
+}
+
+static bool counter_ready(CHAR_DATA *ch)
+{
+    return ch != NULL && !IS_NPC(ch) && IS_HIGHLANDER(ch)
+        && get_highland(ch, HIGH_DEFENSE) >= 4
+        && get_highland(ch, HIGH_ABILITY) >= 4;
+}
+
+static bool counter_equipped(CHAR_DATA *ch)
+{
+    return counter_katana(ch, get_eq_char(ch, WEAR_WEAPON))
+        || counter_katana(ch, get_eq_char(ch, WEAR_HOLD));
+}
+
+void do_counter(CHAR_DATA *ch, char *argument)
+{
+    char arg[MAX_INPUT_LENGTH];
+    one_argument(argument, arg);
+    if (!counter_ready(ch))
+    {
+        stc("Counter requires Highlander Defense 4 and Powers 4.\n\r", ch);
+        return;
+    }
+    if (!str_cmp(arg, "off"))
+    {
+        ch->highland_guard = ch->highland_riposte = 0;
+        stc("You lower your counter guard. Recovery time is unchanged.\n\r", ch);
+        return;
+    }
+    if (arg[0] != '\0')
+    {
+        stc("Syntax: counter [off]\n\r", ch);
+        return;
+    }
+    if (ch->highland_counter_reuse > 0)
+    {
+        stc("Your counter technique is still recovering.\n\r", ch);
+        return;
+    }
+    if (ch->position < POS_FIGHTING || IS_COMBAT_PAUSED(ch)
+        || ch->fighting == NULL || ch->fighting == ch
+        || !combat_target_live(ch, ch->fighting)
+        || is_safe(ch, ch->fighting))
+    {
+        stc("You need a legal, active opponent to prepare a counter.\n\r", ch);
+        return;
+    }
+    if (!counter_equipped(ch))
+    {
+        stc("You must wield your own forged katana to counter.\n\r", ch);
+        return;
+    }
+    if (ch->mana < 1000)
+    {
+        stc("Counter costs 1000 mana.\n\r", ch);
+        return;
+    }
+    if (!hurt_fighting(ch, ch->fighting)) return;
+    ch->mana -= 1000;
+    ch->highland_guard = 2 * PULSE_PER_SECOND;
+    ch->highland_riposte = 0;
+    ch->highland_counter_reuse = 6 * PULSE_PER_SECOND;
+    WAIT_STATE(ch, PULSE_PER_SECOND);
+    stc("You ready your katana to catch and counter a melee strike.\n\r", ch);
+    act("$n readies a katana counter guard.", ch, NULL, NULL, TO_ROOM);
+}
+
+bool highlander_counter_strike(CHAR_DATA *ch, CHAR_DATA *victim,
+    OBJ_DATA *weapon, long dt)
+{
+    if (!counter_ready(ch) || ch->highland_riposte <= 0)
+        return FALSE;
+    if (!counter_equipped(ch))
+    {
+        ch->highland_guard = ch->highland_riposte = 0;
+        return FALSE;
+    }
+    if (dt < TYPE_SLASH || dt > TYPE_BLUNT || !counter_katana(ch, weapon)
+        || IS_COMBAT_PAUSED(ch) || ch->fighting != victim
+        || !combat_target_live(ch, victim) || !can_see(ch, victim)
+        || is_safe(ch, victim) || !hurt_fighting(ch, victim))
+        return FALSE;
+    ch->highland_riposte = 0;
+    act("You answer $N with a precise katana riposte.", ch, NULL, victim, TO_CHAR);
+    act("$n answers you with a precise katana riposte.", ch, NULL, victim, TO_VICT);
+    return TRUE;
+}
+
+bool highlander_counter_parry(CHAR_DATA *ch, CHAR_DATA *victim,
+    OBJ_DATA *weapon, long dt)
+{
+    (void)weapon; /* The defender needs a katana, not the incoming attacker. */
+    if (!counter_ready(victim) || victim->highland_guard <= 0)
+        return FALSE;
+    if (!counter_equipped(victim))
+    {
+        victim->highland_guard = victim->highland_riposte = 0;
+        return FALSE;
+    }
+    if (dt < TYPE_HIT || dt > TYPE_BLUNT || ch == victim
+        || victim->position < POS_FIGHTING || IS_COMBAT_PAUSED(victim)
+        || !combat_target_live(ch, victim) || !can_see(victim, ch)
+        || is_safe(ch, victim) || !hurt_fighting(ch, victim))
+        return FALSE;
+    victim->highland_guard = 0; /* One eligible swing, even when the roll fails. */
+    if (number_percent() > UMIN(6, get_highland(victim, HIGH_DEFENSE)) * 5)
+    {
+        stc("Your katana counter guard fails to catch the strike.\n\r", victim);
+        return FALSE;
+    }
+    victim->highland_riposte = 2 * PULSE_PER_SECOND;
+    act("You catch $n's melee strike with your katana and prepare a riposte.",
+        ch, NULL, victim, TO_VICT);
+    act("$N catches your melee strike with a katana counter guard.",
+        ch, NULL, victim, TO_CHAR);
+    return TRUE;
+}
+
+/* Legacy TYPE_HIT also labels spells and projectiles. Register contact
+ * attacks explicitly instead of treating every physical damage type as melee.
+ * The original one_hit label must be checked before "1"/"2" expand to an
+ * arbitrary weapon description. New melee entry points must use this route
+ * or call the parry preflight before applying their contact effects. */
+bool highlander_melee_attack(long dt, const char *message)
+{
+    static const char *const contacts[] = {
+        "attack", "kick", "fangs", "horns", "wing buffet", "wave fist",
+        "holy sword", "tsume", "forked tongue", "tendril of shadow",
+        "shadow arm", "chimerstral dagger", "spider fangs", "circle",
+        "backstab", "repeating fist", "Fist of Caine", "spiked tail",
+        "tongue", "bone crafting", "mirage strike"
+    };
+    if (message == NULL || dt < TYPE_HIT || dt > TYPE_BLUNT) return FALSE;
+    if (message[0] == '1' || message[0] == '2') return TRUE;
+    for (size_t i = 0; i < sizeof(contacts) / sizeof(contacts[0]); ++i)
+        if (!str_cmp(message, contacts[i])) return TRUE;
+    return FALSE;
+}
+
 void do_increase( CHAR_DATA *ch, char *argument )
 {
     char arg[MIL];
@@ -174,6 +324,8 @@ void do_bash(CHAR_DATA *ch, char *argument)
     }
     else
     {
+        WAIT_STATE(ch, 20);
+        if (highlander_counter_parry(ch, victim, NULL, TYPE_BLUNT)) return;
 snprintf(dam, sizeof(dam), "%li", damage);
 	act("You rush forward, slamming into $N! [#g$t#n]", ch, dam, victim, TO_CHAR);
 	act("$n rushes forward, slamming into $N!", ch, dam, victim, TO_NOTVICT);

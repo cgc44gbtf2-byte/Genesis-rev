@@ -485,6 +485,7 @@ void do_cripple( CHAR_DATA *ch, char *argument )
     dam = number_range(1500, 2500);
 
     if (!hurt_fighting(ch, victim)) return;
+    if (highlander_counter_parry(ch, victim, NULL, TYPE_UNARMED)) return;
 
     sprintf(buf, "You kick $N right in the head. [#g%i#n]", dam);
     act(buf, ch, NULL, victim, TO_CHAR);
@@ -648,6 +649,7 @@ return;
 
     ch->mana -= STUN_FIST_COST;
     ch->combat_pause = STUN_FIST_RECOVERY;
+    if (highlander_counter_parry(ch, victim, NULL, TYPE_UNARMED)) return;
     victim->combat_pause = STUN_FIST_DURATION;
     victim->stun_immunity = STUN_FIST_IMMUNITY;
 

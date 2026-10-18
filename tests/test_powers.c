@@ -15,6 +15,15 @@
 #include <strings.h>
 #include "../Genesis/src/merc.h"
 
+/* This isolated power fixture has no Highlander guard; the real-engine
+ * Counter suite exercises guarded contact attacks and their side effects. */
+bool highlander_counter_parry(CHAR_DATA *ch, CHAR_DATA *victim,
+                             OBJ_DATA *weapon, long dt)
+{
+    (void)ch; (void)victim; (void)weapon; (void)dt;
+    return FALSE;
+}
+
 void adv_spell_damage(CHAR_DATA *ch, OBJ_DATA *book, OBJ_DATA *page,
                       char *argument, int lastcolor);
 

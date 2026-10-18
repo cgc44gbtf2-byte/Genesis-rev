@@ -310,7 +310,7 @@ costs, ranks, skill slots, player-data layout or hybrid availability change.
 See [class ownership and the remaining cleanup stages](deploy/CLASS_LAYOUT.md)
 for the ten-class map, shared engine hooks and the separate saved-field
 migration work. `make test` now includes ten layout checks alongside
-26 C suites; `python3 tests/test_catalog.py` runs fourteen additional catalog checks.
+27 C suites; `python3 tests/test_catalog.py` runs fourteen additional catalog checks.
 Runtime optimization remains measurement-driven, not an assumed benefit of
 file organization.
 
@@ -415,6 +415,11 @@ Highlander Bladeflash and forge safety, with a bounded comparison of
 Highlander abilities in the supplied historical sources, are documented in
 [Highlander options](deploy/HIGHLANDER_OPTIONS.md). This safety patch adds
 no foreign class powers, new save fields or balance changes.
+
+The separate original [Highlander Counter](deploy/HIGHLANDER_COUNTER.md)
+adds an all-melee katana guard and a deferred native riposte: Defense 4,
+Powers 4, 1,000 mana, two-second guard and six-second reuse. It does not
+copy TSOB code, add a Quickening pool or recursively call damage.
 
 ### Mage self-targeting combat preflight
 

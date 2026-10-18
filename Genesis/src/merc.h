@@ -1518,6 +1518,9 @@ struct	char_data
     /* Transient combat state; never serialized into player saves. */
     long                combat_pause;
     long                stun_immunity;
+    long                highland_guard;
+    long                highland_riposte;
+    long                highland_counter_reuse;
     long		pkill;
     long		pdeath;
     long		mkill;
@@ -2200,6 +2203,7 @@ DECLARE_DO_FUN( do_dbreath	);
 DECLARE_DO_FUN( do_dragonskill  );
 DECLARE_DO_FUN( do_dragonform	);
 DECLARE_DO_FUN( do_bladeflash	);
+DECLARE_DO_FUN( do_counter );
 DECLARE_DO_FUN( do_bash		);
 DECLARE_DO_FUN( do_blitz        );
 DECLARE_DO_FUN( do_lunge        );
@@ -3186,6 +3190,9 @@ extern LEADER_BOARD leader_board;
 void    combat_status_update args( ( void ) );
 bool    combat_target_live args( ( CHAR_DATA *ch, CHAR_DATA *victim ) );
 bool    combat_pair_in_room args( ( ROOM_INDEX_DATA *room, CHAR_DATA *ch, CHAR_DATA *victim ) );
+bool    highlander_counter_parry args( ( CHAR_DATA *ch, CHAR_DATA *victim, OBJ_DATA *weapon, long dt ) );
+bool    highlander_counter_strike args( ( CHAR_DATA *ch, CHAR_DATA *victim, OBJ_DATA *weapon, long dt ) );
+bool    highlander_melee_attack args( ( long dt, const char *message ) );
 void	violence_update	args( ( void ) );
 void	multi_hit	args( ( CHAR_DATA *ch, CHAR_DATA *victim ) );
 long	get_speed	args( ( CHAR_DATA *ch ) );

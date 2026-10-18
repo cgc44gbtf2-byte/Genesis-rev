@@ -51,7 +51,11 @@ command in every archive was audited. The older distributions contain
 copyright/license notices; new features should be independently designed and
 implemented, retaining the current project's notices.
 
-### Recommended next addition (not implemented here)
+### Adaptation candidates
+
+The separate original [Counter implementation](HIGHLANDER_COUNTER.md) now
+implements the first concept below as a one-swing guard with a deferred
+native riposte. The remaining candidates are not implemented.
 
 | Priority | Concept | Adaptation boundary |
 |---|---|---|

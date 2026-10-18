@@ -50,6 +50,8 @@ int number_range(int a, int b) { assert(a <= b); return b; }
 int number_percent(void) { return 100; }
 bool is_same_group(CHAR_DATA *ch, CHAR_DATA *v) { return ch == v; }
 bool is_safe(CHAR_DATA *ch, CHAR_DATA *v) { return protected_target || ch == v; }
+bool can_see(CHAR_DATA *ch, CHAR_DATA *v)
+{ (void)ch; (void)v; return TRUE; /* No hidden actors in this isolated fixture. */ }
 bool check_avoid(CHAR_DATA *ch, CHAR_DATA *v, bool dt)
 { (void)ch; (void)v; (void)dt; return FALSE; }
 bool hurt_fighting(CHAR_DATA *ch, CHAR_DATA *v)

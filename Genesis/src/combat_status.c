@@ -38,5 +38,10 @@ void combat_status_update(void)
     {
         if (ch->combat_pause > 0) --ch->combat_pause;
         if (ch->stun_immunity > 0) --ch->stun_immunity;
+        if (ch->highland_guard > 0) --ch->highland_guard;
+        if (ch->highland_riposte > 0) --ch->highland_riposte;
+        if (ch->highland_counter_reuse > 0) --ch->highland_counter_reuse;
+        if (IS_NPC(ch) || !IS_HIGHLANDER(ch) || ch->fighting == NULL)
+            ch->highland_guard = ch->highland_riposte = 0;
     }
 }

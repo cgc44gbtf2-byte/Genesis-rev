@@ -1,3 +1,4 @@
+/tests/test_highlander_counter
 *.o
 *.d
 Genesis/src/merc

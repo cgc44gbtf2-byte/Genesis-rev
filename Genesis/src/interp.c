@@ -126,6 +126,7 @@
    { "morph",		do_dragonform,	POS_FIGHTING,	 LEV_SLE,  LOG_NORMAL	},
    { "htwist",		do_htwist,	POS_FIGHTING,	 LEV_SLE,  LOG_NORMAL	},
    { "bflash",		do_bladeflash,	POS_FIGHTING,	 LEV_SLE,  LOG_NORMAL	},
+   { "counter", do_counter, POS_FIGHTING, LEV_SLE, LOG_NORMAL },
    { "bash",		do_bash,	POS_FIGHTING,	 LEV_SLE,  LOG_NORMAL	},
    { "lunge",		do_lunge,       POS_STANDING,    LEV_SLE,  LOG_NORMAL 	},  
    

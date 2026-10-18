@@ -12,6 +12,7 @@ LEGACY_CLASS_OBJECTS = $(addprefix tests/stun_engine/,$(notdir $(CLASS_MODULE_SO
 
 .PHONY: all test check-layout sanitize clean
 TESTS += tests/test_restart
+TESTS += tests/test_highlander_counter
 
 all:
 	$(MAKE) -C Genesis/src
@@ -46,7 +47,7 @@ test: check-layout $(TESTS)
 
 # Link the real engine, including actual safety, combat and interpreter paths.
 # Only the server entry point is renamed; no real accounts/world files load.
-tests/test_combat_status tests/test_vampire tests/test_basic_buffs tests/test_class_handlers tests/test_vampire_modules tests/test_damage_messages tests/test_transformations tests/test_clans tests/test_class_gear tests/test_drow_ammo tests/test_lifecycle_ownership tests/test_autosave_recovery: tests/%: tests/%.c $(ENGINE_OBJECTS)
+tests/test_combat_status tests/test_vampire tests/test_basic_buffs tests/test_class_handlers tests/test_vampire_modules tests/test_damage_messages tests/test_transformations tests/test_clans tests/test_class_gear tests/test_drow_ammo tests/test_lifecycle_ownership tests/test_autosave_recovery tests/test_highlander_counter: tests/%: tests/%.c $(ENGINE_OBJECTS)
 	$(CC) $(TEST_CPPFLAGS) $(CFLAGS) $(TEST_FLAGS) $< $(ENGINE_OBJECTS) $(LDFLAGS) $(TEST_LDFLAGS) $(LDLIBS) -o $@
 
 # Separate test objects keep sanitizer flags out of the production executable.

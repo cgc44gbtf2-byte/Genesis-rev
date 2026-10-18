@@ -367,6 +367,8 @@ void one_hit( CHAR_DATA *ch, CHAR_DATA *victim, long dt, char *message )
      */
     if (victim == NULL || victim->position == POS_DEAD || ch->in_room != victim->in_room) return;
 
+    bool melee = highlander_melee_attack(dt, message);
+
     /*
      * Check if it is a weapon attack.
      */
@@ -409,7 +411,13 @@ void one_hit( CHAR_DATA *ch, CHAR_DATA *victim, long dt, char *message )
     }
     if (!str_cmp(message, "backstab") || !str_cmp(message, "circle")) weap = TRUE;
 
-    if (check_avoid(ch, victim, weap))
+    /* A riposte changes one ordinary weapon strike, not a nested attack.
+     * It cannot start another counter; all native damage/cap/safety paths
+     * below still apply. Natural/contact attacks qualify; magic and ranged
+     * attacks are excluded by the original-label classifier above. */
+    bool riposte = highlander_counter_strike(ch, victim, wield, dt);
+    if (melee && !riposte && highlander_counter_parry(ch, victim, wield, dt)) return;
+    if (!riposte && check_avoid(ch, victim, weap))
     {
 	if (IS_NPC(ch) || !IS_SET(ch->act, PLR_BRIEF)) act("$N avoids your blow.", ch, NULL, victim, TO_CHAR);
 	if (IS_NPC(victim) || !IS_SET(victim->act, PLR_BRIEF)) act("You avoid $n's blow.", ch, NULL, victim, TO_VICT);
@@ -2163,6 +2171,7 @@ void do_punch( CHAR_DATA *ch, char *argument )
      || (IS_VAMPIRE(victim) && get_disc(victim, DISC_FORTITUDE) >= 7))
 	dam = 0;
 
+    if (highlander_counter_parry(ch, victim, NULL, TYPE_BLUNT)) return;
     damage(ch, victim, dam, TYPE_BLUNT, "punch");
     if (victim == NULL || victim->position == POS_DEAD || dam < 1) return;
     if (victim->position == POS_FIGHTING) stop_fighting(victim, TRUE);
