@@ -409,6 +409,13 @@ transaction; retries use the existing autosave path. This does not repair
 pre-existing inconsistent saves or finish follower accounting, ownership of
 overlapping temporary flags, class teardown or hybrid migration.
 
+### Highlander safety and source comparison
+
+Highlander Bladeflash and forge safety, with a bounded comparison of
+Highlander abilities in the supplied historical sources, are documented in
+[Highlander options](deploy/HIGHLANDER_OPTIONS.md). This safety patch adds
+no foreign class powers, new save fields or balance changes.
+
 ### Mage self-targeting combat preflight
 
 Native-engine duel preparation reproduced a null-room crash when a Mage

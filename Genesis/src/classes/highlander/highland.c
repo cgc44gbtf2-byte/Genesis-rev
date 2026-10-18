@@ -25,7 +25,7 @@ void do_increase( CHAR_DATA *ch, char *argument )
 
     if (arg[0] == '\0')
     {
-	sprintf(buf, "Increases: Attack (%li), Defense (%li), Weaponry (%li), Powers (%li).\n\r",
+snprintf(buf, sizeof(buf), "Increases: Attack (%li), Defense (%li), Weaponry (%li), Powers (%li).\n\r",
 	 get_highland(ch, HIGH_ATTACK), get_highland(ch, HIGH_DEFENSE), get_highland(ch, HIGH_WEAPON), get_highland(ch, HIGH_ABILITY));
 	stc(buf, ch);
 	stc("Syntax: increase <attack/defense/weaponry/powers>",ch);
@@ -44,7 +44,7 @@ void do_increase( CHAR_DATA *ch, char *argument )
 
     if (get_highland(ch, power) >= 6)
     {
-	sprintf(buf, "You have already achieved maximum proficiency in highlander %s.\n\r", arg);
+snprintf(buf, sizeof(buf), "You have already achieved maximum proficiency in highlander %s.\n\r", arg);
 	stc(buf, ch);
 	return;
     }
@@ -52,14 +52,14 @@ void do_increase( CHAR_DATA *ch, char *argument )
     cost = (get_highland(ch, power) + 1) * 15;
     if (ch->primal < cost)
     {
-	sprintf(buf, "It costs %li primal to improve your skill with highlander %s.\n\r", cost, arg);
+snprintf(buf, sizeof(buf), "It costs %li primal to improve your skill with highlander %s.\n\r", cost, arg);
 	stc(buf, ch);
 	return;
     }
 
     ch->primal -= cost;
     ch->pcdata->highland[power]++;
-    sprintf(buf, "You have improved your skill with highlander %s.\n\r", arg);
+    snprintf(buf, sizeof(buf), "You have improved your skill with highlander %s.\n\r", arg);
     stc(buf, ch);
     return;
 }
@@ -93,7 +93,16 @@ void do_bladeflash(CHAR_DATA *ch, char *argument)
 	stc("They are not here.\n\r",ch);
 	return;
     }
-    if (is_safe(ch,victim)) return;
+    /* Blindness is hostile even though it does no immediate HP damage.
+     * Apply the same combat-entry/peace/link-dead checks as damaging powers
+     * before removing Truesight or changing the target's affects. */
+    if (victim == ch || victim->position <= POS_STUNNED)
+    {
+stc("You cannot blade flash them.\n\r", ch);
+return;
+    }
+    if ((sn = skill_lookup("blind")) < 0) return;
+    if (is_safe(ch,victim) || !hurt_fighting(ch,victim)) return;
 
     if (!IS_NPC(victim))
     {
@@ -108,7 +117,6 @@ void do_bladeflash(CHAR_DATA *ch, char *argument)
 
     if (!IS_AFFECTED(victim, AFF_BLIND))
     {
-    	if ( ( sn = skill_lookup( "blind" ) ) < 0 ) return;
     	af.type      = sn;
     	af.location  = APPLY_HITROLL;
     	af.modifier  = -50;
@@ -166,7 +174,7 @@ void do_bash(CHAR_DATA *ch, char *argument)
     }
     else
     {
-	sprintf(dam, "%li", damage);
+snprintf(dam, sizeof(dam), "%li", damage);
 	act("You rush forward, slamming into $N! [#g$t#n]", ch, dam, victim, TO_CHAR);
 	act("$n rushes forward, slamming into $N!", ch, dam, victim, TO_NOTVICT);
 	act("$n rushes forward, slamming into you! [#r$t#n]", ch, dam, victim, TO_VICT);
@@ -238,20 +246,20 @@ void do_judgement(CHAR_DATA *ch, char *argument )
     act("$n examines $N intently.",ch,NULL,victim,TO_NOTVICT);
     act("$n examines you intently.",ch,NULL,victim,TO_VICT);
 
-    if (IS_NPC(victim)) sprintf(buf, "%s is an NPC.\n\r",victim->short_descr);
-    else if (IS_ST(victim)) sprintf(buf, "%s is a Story Teller.\n\r", victim->name);
-    else if (IS_IMP(victim)) sprintf(buf, "%s is an Implementor.\n\r", victim->name);
-    else if (IS_IMM(victim)) sprintf(buf, "%s is an Immortal.\n\r", victim->name);
-    else if (IS_BUI(victim)) sprintf(buf, "%s is a Builder.\n\r", victim->name);
-    else if (IS_AWA(victim)) sprintf(buf, "%s is Awakened.\n\r", victim->name);
-    else sprintf(buf, "%s is a Sleeper.\n\r", victim->name);
+    if (IS_NPC(victim)) snprintf(buf, sizeof(buf), "%s is an NPC.\n\r",victim->short_descr);
+    else if (IS_ST(victim)) snprintf(buf, sizeof(buf), "%s is a Story Teller.\n\r", victim->name);
+    else if (IS_IMP(victim)) snprintf(buf, sizeof(buf), "%s is an Implementor.\n\r", victim->name);
+    else if (IS_IMM(victim)) snprintf(buf, sizeof(buf), "%s is an Immortal.\n\r", victim->name);
+    else if (IS_BUI(victim)) snprintf(buf, sizeof(buf), "%s is a Builder.\n\r", victim->name);
+    else if (IS_AWA(victim)) snprintf(buf, sizeof(buf), "%s is Awakened.\n\r", victim->name);
+    else snprintf(buf, sizeof(buf), "%s is a Sleeper.\n\r", victim->name);
     stc(buf,ch);
 
-    sprintf(buf, "Health: %li/%li\n\r", (victim->hit/2000) * 2000, (victim->max_hit/2000) * 2000);
+    snprintf(buf, sizeof(buf), "Health: %li/%li\n\r", (victim->hit/2000) * 2000, (victim->max_hit/2000) * 2000);
     stc(buf,ch);
-    sprintf(buf, "Magic:  %li/%li\n\r", (victim->mana/2000) * 2000, (victim->max_mana/2000) * 2000);
+    snprintf(buf, sizeof(buf), "Magic:  %li/%li\n\r", (victim->mana/2000) * 2000, (victim->max_mana/2000) * 2000);
     stc(buf,ch);
-    sprintf(buf, "Armor:  %li.\n\r",char_ac(victim));
+    snprintf(buf, sizeof(buf), "Armor:  %li.\n\r",char_ac(victim));
     stc(buf,ch);
     return;
 }
@@ -305,6 +313,9 @@ void do_forge( CHAR_DATA *ch, char *argument )
     OBJ_DATA *invobj;
     char arg[MAX_STRING_LENGTH];
     long vnum = 29650, value;
+    const long transferable = QUEST_HITROLL | QUEST_DAMROLL | QUEST_HIT
+        | QUEST_MANA | QUEST_AC | QUEST_ENCHANTED | QUEST_IMPROVED
+        | QUEST_AGGRAVATED;
 
     one_argument(argument,arg);
 
@@ -369,17 +380,50 @@ void do_forge( CHAR_DATA *ch, char *argument )
 	    stc("It's not yours!\n\r",ch);
 	    return;
 	}
+/* Reject non-transferable state before charging or destroying the source.
+ * A class-bound, temporary or custom-action weapon cannot safely become a
+ * permanent Highlander relic. Ordinary quest/enchantment affects can move
+ * exactly once along with their already-spent quest-point accounting. */
+if (invobj->chobj != NULL || invobj->contains != NULL
+    || invobj->timer != 0 || invobj->temp_timer != 0
+    || invobj->spectype != 0 || invobj->specpower != 0
+    || invobj->extra_descr != NULL
+    || IS_SET(invobj->extra_flags, ITEM_VANISH)
+    || (invobj->extra_flags & ~pObjIndex->extra_flags) != 0
+    || (invobj->quest & ~transferable) != 0
+    || invobj->points < 0
+    || (invobj->actcommands != NULL && invobj->actcommands[0] != '\0')
+    || (invobj->chpoweron != NULL && str_cmp(invobj->chpoweron, "(null)")
+        && invobj->chpoweron[0] != '\0')
+    || (invobj->chpoweroff != NULL && str_cmp(invobj->chpoweroff, "(null)")
+        && invobj->chpoweroff[0] != '\0')
+    || (invobj->chpoweruse != NULL && str_cmp(invobj->chpoweruse, "(null)")
+        && invobj->chpoweruse[0] != '\0')
+    || (invobj->victpoweron != NULL && str_cmp(invobj->victpoweron, "(null)")
+        && invobj->victpoweron[0] != '\0')
+    || (invobj->victpoweroff != NULL && str_cmp(invobj->victpoweroff, "(null)")
+        && invobj->victpoweroff[0] != '\0')
+    || (invobj->victpoweruse != NULL && str_cmp(invobj->victpoweruse, "(null)")
+        && invobj->victpoweruse[0] != '\0'))
+{
+    stc("This weapon has properties the forge cannot preserve. It was not consumed.\n\r", ch);
+    return;
+}
 	obj = create_object(pObjIndex, 50);
-	obj_to_char(obj, ch);
-	ch->primal -= 50;
-	ch->pcdata->quest -= 100;
 	free_string( obj->questmaker );
-	obj->questmaker = str_dup( ch->name );
+obj->questmaker = str_dup(invobj->questmaker != NULL
+    && invobj->questmaker[0] != '\0' ? invobj->questmaker : ch->name);
 	free_string( obj->questowner );
 	obj->questowner = str_dup( ch->name );
-	SET_BIT(obj->quest, QUEST_AGGRAVATED);
+obj->quest |= (invobj->quest & transferable) | QUEST_AGGRAVATED;
+obj->points = invobj->points;
 for (value = 0;value < 4;value++)
 	    obj->value[value] = invobj->value[value];
+obj->affected = invobj->affected;
+invobj->affected = NULL; /* Source extraction must not free transferred affects. */
+obj_to_char(obj, ch);
+ch->primal -= 50;
+ch->pcdata->quest -= 100;
 	act("You reforge $p.",ch,invobj,NULL,TO_CHAR);
 	act("$n reforges $p.",ch,invobj,NULL,TO_ROOM);
 	extract_obj(invobj);

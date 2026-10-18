@@ -460,6 +460,69 @@ static void forge(void)
     for (int i = 0; i < 4; ++i) assert(actor.carrying->value[i] == values[i]);
 }
 
+static void upgraded_forge(void)
+{
+    fixture(CLASS_HIGHLANDER);
+    index_for(29650, ITEM_WEAPON);
+    OBJ_DATA *source = create_object(index_for(72003, ITEM_WEAPON), 0);
+    obj_to_char(source, &actor);
+    free_string(source->questowner); source->questowner = str_dup(actor.name);
+    free_string(source->questmaker); source->questmaker = str_dup("Original");
+    source->points = 450;
+    source->quest = QUEST_ENCHANTED | QUEST_HITROLL | QUEST_IMPROVED;
+    source->value[0] = 123;
+    source->value[3] = TYPE_PIERCE;
+    AFFECT_DATA *upgrade = alloc_perm(sizeof(*upgrade));
+    memset(upgrade, 0, sizeof(*upgrade));
+    upgrade->type = -1;
+    upgrade->duration = -1;
+    upgrade->location = APPLY_HITROLL;
+    upgrade->modifier = 5;
+    source->affected = upgrade;
+    actor.primal = 50; pc.quest = 100;
+
+    source->timer = 1; /* Temporary equipment must not become permanent. */
+    invoke(do_forge, "gear");
+    assert(actor.carrying == source && actor.primal == 50 && pc.quest == 100 &&
+           source->affected == upgrade && source->points == 450);
+    source->timer = 0;
+    SET_BIT(source->quest, QUEST_VANISH);
+    invoke(do_forge, "gear");
+    assert(actor.carrying == source && actor.primal == 50 && pc.quest == 100);
+    REMOVE_BIT(source->quest, QUEST_VANISH);
+    SET_BIT(source->spectype, SITEM_DROW);
+    invoke(do_forge, "gear");
+    assert(actor.carrying == source && actor.primal == 50 && pc.quest == 100);
+    source->spectype = 0;
+
+    invoke(do_forge, "gear");
+    OBJ_DATA *katana = actor.carrying;
+    assert(katana && katana != source && katana->next_content == NULL);
+    assert(katana->pIndexData->vnum == 29650 && actor.primal == 0 && pc.quest == 0);
+    assert(katana->points == 450 && katana->affected == upgrade &&
+           upgrade->next == NULL && upgrade->modifier == 5);
+    assert(katana->value[0] == 123 && katana->value[3] == TYPE_PIERCE);
+    const long preserved = QUEST_ENCHANTED | QUEST_HITROLL |
+        QUEST_IMPROVED | QUEST_AGGRAVATED | QUEST_RELIC;
+    assert((katana->quest & preserved) == preserved);
+    assert(!IS_SET(katana->quest, QUEST_VANISH));
+    assert(!str_cmp(katana->questmaker, "Original") &&
+           !str_cmp(katana->questowner, actor.name));
+    assert(save_char_obj_checked(&actor));
+    DESCRIPTOR_DATA loaded = {0};
+    assert(load_char_obj(&loaded, "Gearhero"));
+    OBJ_DATA *saved = loaded.character->carrying;
+    assert(saved && saved->pIndexData->vnum == 29650);
+    assert(saved->points == 450 && saved->affected &&
+           saved->affected->location == APPLY_HITROLL &&
+           saved->affected->modifier == 5);
+    assert((saved->quest & preserved) == preserved);
+    assert(!str_cmp(saved->questmaker, "Original") &&
+           !str_cmp(saved->questowner, "Gearhero"));
+    while (loaded.character->carrying) extract_obj(loaded.character->carrying);
+    free_char(loaded.character);
+}
+
 static void mage_costs(void)
 {
     fixture(CLASS_MAGE);
@@ -623,7 +686,7 @@ int main(int argc, char **argv)
     string_space = malloc(1024*1024); assert(string_space);
     top_string = string_space; *top_string = '\0'; current_time = 2000000000; init_mm();
     if (argc > 1) {
-        if (!strcmp(argv[1],"forge")) forge();
+        if (!strcmp(argv[1],"forge")) { forge(); upgraded_forge(); }
         else if (!strcmp(argv[1],"sorcerer")) missing_sorcerer();
         else if (!strcmp(argv[1],"mage")) mage_costs();
         else if (!strcmp(argv[1],"equipment")) equipment();
@@ -632,7 +695,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[1],"conjured")) conjured_supplies();
         else abort();
     } else {
-        missing_sorcerer(); craft_boundaries(); sorcerer(); forge();
+        missing_sorcerer(); craft_boundaries(); sorcerer(); forge(); upgraded_forge();
         mage_costs(); equipment(); class_restrictions(); dragon_persistence();
         consumable_market(); market_sales(); conjured_supplies(); fetish_crafting();
     }

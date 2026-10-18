@@ -57,6 +57,72 @@ static void costless(void)
     assert(actor.blood[0] == 100 && actor.blood[1] == 50);
 }
 
+static void command(const char *name);
+
+static void test_highlander_flash(void)
+{
+    CHAR_DATA victim;
+    PC_DATA victim_pc;
+    DESCRIPTOR_DATA victim_desc;
+    char victim_output[4096] = {0};
+
+    fresh(CLASS_HIGHLANDER);
+    memset(&victim_pc, 0, sizeof(victim_pc));
+    memset(&victim_desc, 0, sizeof(victim_desc));
+    clear_char(&victim);
+    victim.name = victim.short_descr = "opponent";
+    victim.pcdata = &victim_pc;
+    victim_pc.love = victim_pc.conding = "";
+    victim.level = LEV_AWA;
+    victim.status = actor.status = 100;
+    victim.in_room = &room;
+    victim.desc = &victim_desc;
+    victim_desc.character = &victim;
+    victim_desc.connected = CON_PLAYING;
+    victim_desc.outbuf = victim_output;
+    victim_desc.outsize = sizeof(victim_output);
+    victim.next = NULL;
+    actor.next = &victim;
+    actor.next_in_room = &victim;
+    room.people = &actor;
+    player.highland[HIGH_ABILITY] = 2;
+    SET_BIT(victim.act, PLR_HOLYLIGHT);
+
+    command("bflash tester"); /* No hostile action against oneself. */
+    assert(!actor.fighting && !victim.fighting && actor.wait == 0);
+    SET_BIT(victim.itemaffect, ITEMA_PEACE);
+    command("bflash opponent");
+    assert(!actor.fighting && !victim.fighting && actor.wait == 0 &&
+           !victim.affected && IS_SET(victim.act, PLR_HOLYLIGHT));
+    REMOVE_BIT(victim.itemaffect, ITEMA_PEACE);
+    victim.desc = NULL;
+    command("bflash opponent"); /* Link-dead target, not yet fighting. */
+    assert(!actor.fighting && !victim.fighting && actor.wait == 0 &&
+           !victim.affected && IS_SET(victim.act, PLR_HOLYLIGHT));
+    victim.desc = &victim_desc;
+    command("bflash opponent");
+    assert(actor.fighting == &victim && victim.fighting == &actor);
+    assert(actor.wait == 24 && victim.affected != NULL);
+    assert(IS_AFFECTED(&victim, AFF_BLIND));
+    assert(!IS_SET(victim.act, PLR_HOLYLIGHT));
+    assert(victim.affected->duration == 20 &&
+           victim.affected->modifier == -50);
+    stop_fighting(&actor, TRUE);
+    affect_remove(&victim, victim.affected);
+    char description[MAX_INPUT_LENGTH * 2];
+    memset(description, 'X', sizeof(description) - 1);
+    description[sizeof(description) - 1] = '\0';
+    victim.short_descr = description;
+    SET_BIT(victim.act, ACT_IS_NPC);
+    player.highland[HIGH_ABILITY] = 5;
+    descriptor.outtop = 0; output[0] = '\0';
+    command("judge opponent");
+    assert(strstr(output, "Health:") && strstr(output, "Magic:") &&
+           strstr(output, "Armor:"));
+    actor.next = actor.next_in_room = NULL;
+    char_list = room.people = &actor;
+}
+
 static void command(const char *name)
 {
     snprintf(descriptor.incomm, sizeof(descriptor.incomm), "%s", name);
@@ -238,6 +304,7 @@ int main(void)
     assert(string_space); top_string = string_space;
     current_time = 123456;
     init_mm();
+    test_highlander_flash();
     test_presence();
     test_beast();
     test_werewolf();
